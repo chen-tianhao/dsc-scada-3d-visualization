@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DCS · SCADA 大屏总览 · 化工储罐能源段</title>
+<script src="./vendor/chart.umd.min.js"></script>
+<script>window.Chart||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/scr'+'ipt>');</script>
+<script src="./data.js"></script>
+<style>
+  :root {
+    --bg-0:#050b1a; --bg-1:#0a1428; --bg-2:#0f1d3a;
+    --line:#1f3a6b; --line-2:#2a4d8c;
+    --text:#d6e4ff; --text-2:#8aa5d3; --text-3:#5a7ab0;
+    --accent:#00d4ff; --green:#4ade80; --blue:#38bdf8;
+    --orange:#fb923c; --red:#f87171; --yellow:#fbbf24; --purple:#c084fc;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { min-height:100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #0a1e3f 0%, var(--bg-0) 70%);
+    color: var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size:13px; padding:0 0 40px;
+  }
+  .wrap { max-width:1360px; margin:0 auto; padding:0 20px; }
+
+  .header {
+    background: linear-gradient(90deg,#0a1e3f 0%,#0f2a55 50%,#0a1e3f 100%);
+    border:1px solid var(--line); border-radius:4px;
+    display:flex; align-items:center; padding:0 30px; height:70px;
+    position:relative; overflow:hidden; margin:14px 0 22px;
+  }
+  .header h1 {
+    flex:1; text-align:center; font-size:22px; font-weight:700; letter-spacing:4px;
+    background:linear-gradient(180deg,#ffffff 0%,#6bb6ff 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .header .logo {
+    position:absolute; left:30px; top:50%; transform:translateY(-50%);
+    display:flex; align-items:center; gap:10px; color:var(--accent); font-size:14px; letter-spacing:1px;
+  }
+  .header .logo::before {
+    content:''; width:22px; height:22px; border:2px solid var(--accent); border-radius:50%;
+    box-shadow:0 0 12px var(--accent);
+  }
+  .header .meta {
+    position:absolute; right:30px; top:50%; transform:translateY(-50%);
+    text-align:right; font-size:12px; color:var(--text-2); line-height:1.6;
+  }
+
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px; }
+  .kpi {
+    background:linear-gradient(180deg, rgba(20,39,74,.8) 0%, rgba(10,20,40,.8) 100%);
+    border:1px solid var(--line); border-radius:4px; padding:14px 18px; position:relative; overflow:hidden;
+  }
+  .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:.6; }
+  .kpi .l { font-size:11px; color:var(--text-2); letter-spacing:2px; }
+  .kpi .v { font-size:30px; font-weight:700; color:var(--accent); font-family:"DIN Alternate",Consolas,monospace; line-height:1.2; }
+  .kpi .v .u { font-size:12px; color:var(--text-2); margin-left:4px; font-weight:400; }
+  .kpi .f { font-size:11px; color:var(--text-3); margin-top:2px; }
+
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .card {
+    background:linear-gradient(180deg, rgba(20,39,74,.65) 0%, rgba(10,20,40,.65) 100%);
+    border:1px solid var(--line); border-radius:4px; padding:18px 20px 20px;
+    display:flex; flex-direction:column; position:relative; overflow:hidden; text-decoration:none; color:inherit;
+    transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+  }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:.6; }
+  .card:hover { border-color:var(--accent); box-shadow:0 0 24px rgba(0,212,255,.18); transform:translateY(-2px); }
+  .card .code {
+    font-family:Consolas,monospace; font-size:11px; letter-spacing:2px; color:var(--accent);
+    border:1px solid var(--line-2); border-radius:3px; padding:2px 8px; display:inline-block; align-self:flex-start;
+  }
+  .card h2 { font-size:19px; margin:12px 0 6px; letter-spacing:2px; }
+  .card .sub { font-size:11px; color:var(--text-3); letter-spacing:1px; margin-bottom:12px; }
+  .card p { font-size:12px; color:var(--text-2); line-height:1.85; }
+  .card ul { list-style:none; margin:14px 0 0; padding:0; }
+  .card li { display:flex; justify-content:space-between; font-size:11px; padding:5px 0; border-bottom:1px dashed var(--line); }
+  .card li:last-child { border-bottom:none; }
+  .card li .k { color:var(--text-3); }
+  .card li .v { color:var(--text); font-family:Consolas,monospace; font-weight:600; }
+  .card .go {
+    margin-top:auto; padding-top:16px; font-size:12px; color:var(--accent); letter-spacing:2px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .card .go::after { content:'→'; transition:transform .2s ease; }
+  .card:hover .go::after { transform:translateX(5px); }
+
+  .tip { margin-top:22px; font-size:11px; color:var(--text-3); line-height:1.9; text-align:center; }
+  .tip code {
+    color:var(--accent); background:rgba(0,212,255,.08); border:1px solid var(--line);
+    border-radius:2px; padding:1px 6px; font-family:Consolas,monospace;
+  }
+
+  @media (max-width:1000px) {
+    .kpis { grid-template-columns:repeat(2,1fr); }
+    .cards { grid-template-columns:1fr; }
+    .header { height:auto; min-height:64px; padding:12px 16px; flex-wrap:wrap; }
+    .header .logo, .header .meta { position:static; transform:none; text-align:left; }
+    .header h1 { font-size:16px; letter-spacing:2px; text-align:left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">DCS · SCADA</div>
+    <h1>大屏总览</h1>
+    <div class="meta">
+      <div>数据基准 <span id="tsNow">—</span></div>
+      <div>测点 <b style="color:var(--accent)">34</b> · 设备 <b style="color:var(--accent)">7</b></div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="l">总库存 AGG-001</div>
+      <div class="v"><span id="kVol">—</span><span class="u">m³</span></div>
+      <div class="f">质量 <span id="kMass">—</span> t · 3 罐</div>
+    </div>
+    <div class="kpi">
+      <div class="l">主工艺流量 AGG-002</div>
+      <div class="v" style="color:var(--yellow)"><span id="kFlow">—</span><span class="u">m³/h</span></div>
+      <div class="f">负荷 <span id="kLoad">—</span>% · 主用 P-101A</div>
+    </div>
+    <div class="kpi">
+      <div class="l">总电耗 AGG-003</div>
+      <div class="v" style="color:var(--green)"><span id="kPower">—</span><span class="u">kW</span></div>
+      <div class="f">3 台泵 Σ P</div>
+    </div>
+    <div class="kpi">
+      <div class="l">热平衡偏差 AGG-004</div>
+      <div class="v" style="color:var(--green)"><span id="kImb">—</span><span class="u">%</span></div>
+      <div class="f">|偏差| &lt; 10% 工业阈值</div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <a class="card" href="./01_panorama.html">
+      <span class="code">01</span>
+      <h2>工艺全景</h2>
+      <div class="sub">PROCESS PANORAMA · ISOMETRIC PLANT VIEW</div>
+      <p>以三维等距视角呈现罐区、泵房与换热区的完整布局：设备树、罐区实时液位、热平衡核算、事件流与关键测点明细，并支持设备拾取联动定位。</p>
+      <ul>
+        <li><span class="k">场景</span><span class="v">7 台设备 · 9 条管线</span></li>
+        <li><span class="k">交互</span><span class="v">拖拽旋转 / 滚轮缩放 / 拾取</span></li>
+      </ul>
+      <div class="go">进入大屏</div>
+    </a>
+
+    <a class="card" href="./02_pumps_focus.html">
+      <span class="code">02</span>
+      <h2>输送设备</h2>
+      <div class="sub">CONVEYING EQUIPMENT FOCUS · CENTRIFUGAL PUMPS</div>
+      <p>聚焦 P-101A/B 主备泵组与 P-201 冷却水泵：泵体三维剖视、流量/压力/电流/频率实时参数、能效对比曲线、运行时长与启停切换逻辑及事件日志。</p>
+      <ul>
+        <li><span class="k">对象</span><span class="v">P-101A · P-101B · P-201</span></li>
+        <li><span class="k">互备</span><span class="v">A 故障 → B 自启 ≤ 3 s</span></li>
+      </ul>
+      <div class="go">进入大屏</div>
+    </a>
+
+    <a class="card" href="./03_process_flow.html">
+      <span class="code">03</span>
+      <h2>工艺走向</h2>
+      <div class="sub">PROCESS FLOW · MAIN LINE &amp; COOLING LOOP</div>
+      <p>沿介质流向并排铺开主工艺热侧（T-101 → P-101A/B → E-101 → T-102 → T-103）与冷却回路（供水 → P-201 → E-101 → 回水），逐节点给出实时值、24h 微趋势与物料可追溯链。</p>
+      <ul>
+        <li><span class="k">节点</span><span class="v">主工艺 5 · 冷却回路 3</span></li>
+        <li><span class="k">追溯</span><span class="v">质量流 进料 → 成品</span></li>
+      </ul>
+      <div class="go">进入大屏</div>
+    </a>
+  </div>
+
+  <div class="tip">
+    快捷键：<code>Alt + ←</code> / <code>Alt + →</code> 在三块大屏之间切换；页面右上角（标题栏）内置导航条可直接跳转。<br>
+    数据为静态快照，非实时采集；趋势窗口 24h @ 5 min。
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var AG = window.AGGREGATES || {};
+  var a1 = AG['AGG-001 总库存'] || {};
+  var a2 = AG['AGG-002 主工艺流量'] || {};
+  var a3 = AG['AGG-003 总电耗'] || {};
+  var a4 = AG['AGG-004 热交换量'] || {};
+  function set(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+  set('kVol', a1.total_volume_m3);
+  set('kMass', a1.total_mass_t);
+  set('kFlow', a2.value);
+  set('kLoad', a2.load_pct);
+  set('kPower', a3.total_kw);
+  set('kImb', a4.imbalance_pct);
+  set('tsNow', (window.CURRENT_TS || '').replace('T', ' ').slice(0, 16));
+})();
+</script>
+<script src="./nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2, viewport-fit=cover">
+<title>沿工艺走向大屏 · 主工艺与冷却回路并行带</title>
+<script src="./vendor/chart.umd.min.js"></script>
+<script>window.Chart||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/scr'+'ipt>');</script>
+<script src="./data.js"></script>
+<style>
+  :root {
+    --bg-0: #050b1a;
+    --bg-1: #0a1428;
+    --bg-2: #0f1d3a;
+    --bg-3: #14274a;
+    --line: #1f3a6b;
+    --line-2: #2a4d8c;
+    --text: #d6e4ff;
+    --text-2: #8aa5d3;
+    --text-3: #5a7ab0;
+    --accent: #00d4ff;
+    --green: #4ade80;
+    --blue: #38bdf8;
+    --orange: #fb923c;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --purple: #c084fc;
+    --hot: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #0a1e3f 0%, var(--bg-0) 70%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .screen {
+    width: 1920px;
+    height: 1080px;
+    display: grid;
+    grid-template-rows: 70px 660px 320px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+  .panel {
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.65) 0%, rgba(10, 20, 40, 0.65) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before { content:''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6; }
+  .panel-title {
+    position: absolute; top: 0; left: 0; right: 0; height: 30px;
+    display: flex; align-items: center; padding: 0 14px;
+    background: linear-gradient(90deg, rgba(0,212,255,0.15) 0%, transparent 100%);
+    font-size: 12px; color: var(--accent); letter-spacing: 1px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-title::before { content:''; width:3px; height:14px; background: var(--accent); margin-right: 8px; box-shadow: 0 0 6px var(--accent); }
+
+  /* === Header === */
+  .header {
+    background: linear-gradient(90deg, #0a1e3f 0%, #0f2a55 50%, #0a1e3f 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    display: flex; align-items: center; padding: 0 30px;
+    position: relative; overflow: hidden;
+  }
+  .header h1 {
+    flex: 1; text-align: center;
+    font-size: 26px; font-weight: 700; letter-spacing: 4px;
+    background: linear-gradient(180deg, #ffffff 0%, #6bb6ff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 0 30px rgba(0,212,255,0.4);
+  }
+  .header h1 .sub { font-size: 14px; letter-spacing: 2px; color: var(--text-2); margin-left: 12px; -webkit-text-fill-color: var(--text-2); }
+  .header .meta { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); text-align: right; font-size: 12px; color: var(--text-2); line-height: 1.6; }
+  .header .logo { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 14px; letter-spacing: 1px; }
+  .header .logo::before { content: ''; width: 22px; height: 22px; border: 2px solid var(--accent); border-radius: 50%; box-shadow: 0 0 12px var(--accent); }
+  .header .logo::after { content: ''; position: absolute; left: 38px; top: 50%; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; transform: translateY(-50%); box-shadow: 0 0 8px var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:translateY(-50%) scale(1)} 50%{opacity:.5;transform:translateY(-50%) scale(1.4)} }
+
+  /* === Main area === */
+  .main-area {
+    display: grid;
+    grid-template-columns: 220px 1fr 280px;
+    gap: 10px;
+  }
+  .left-kpis { display: grid; grid-template-rows: repeat(4, 1fr); gap: 10px; }
+  .kpi-mini {
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.8) 0%, rgba(10, 20, 40, 0.8) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 10px 14px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 4px;
+    position: relative;
+  }
+  .kpi-mini::after {
+    content: '';
+    position: absolute; top: 0; right: 0;
+    width: 50px; height: 50px;
+    background: radial-gradient(circle at top right, rgba(0,212,255,0.2), transparent 70%);
+  }
+  .kpi-mini .l { font-size: 11px; color: var(--text-2); letter-spacing: 1px; }
+  .kpi-mini .v { font-size: 28px; color: var(--accent); font-family: monospace; font-weight: 700; line-height: 1.1; }
+  .kpi-mini .v .u { font-size: 12px; color: var(--text-2); margin-left: 4px; font-weight: 400; }
+  .kpi-mini .f { font-size: 10px; color: var(--text-3); display: flex; gap: 8px; }
+  .kpi-mini .f .up { color: var(--green); }
+  .kpi-mini .f .down { color: var(--red); }
+
+  /* === Process flow center === */
+  .flow-center {
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.4) 0%, rgba(10, 20, 40, 0.4) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .flow-svg { width: 100%; height: 100%; }
+
+  /* === Detail right === */
+  .detail-right { display: grid; grid-template-rows: 1fr 1fr; gap: 10px; }
+  .evt-list { max-height: 100%; overflow: hidden; }
+  .evt-item {
+    display: grid; grid-template-columns: 60px 1fr; gap: 8px; padding: 6px 0;
+    border-bottom: 1px dashed var(--line); font-size: 11px;
+  }
+  .evt-item .t { color: var(--text-3); font-family: monospace; }
+  .evt-item .m .lvl { display: inline-block; padding: 0 4px; border-radius: 2px; margin-right: 4px; font-size: 10px; }
+  .lvl-info { background: rgba(56, 189, 248, 0.2); color: var(--blue); }
+  .lvl-warn { background: rgba(251, 146, 60, 0.2); color: var(--orange); }
+  .lvl-ok { background: rgba(74, 222, 128, 0.2); color: var(--green); }
+  .lvl-err { background: rgba(248, 113, 113, 0.2); color: var(--red); }
+
+  /* === Bottom: 4 trend charts === */
+  .trend-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .trend-panel { padding: 0; }
+  .trend-body { padding: 36px 14px 14px; height: 100%; }
+  .trend-stat {
+    display: grid; grid-template-columns: 1fr auto; align-items: end; margin-bottom: 8px;
+  }
+  .trend-stat .stat-v { font-size: 28px; font-weight: 700; color: var(--accent); font-family: monospace; line-height: 1; }
+  .trend-stat .stat-v .u { font-size: 12px; color: var(--text-2); margin-left: 4px; font-weight: 400; }
+  .trend-stat .stat-d { font-size: 11px; padding: 2px 6px; border-radius: 2px; }
+  .delta-up { background: rgba(74,222,128,0.15); color: var(--green); }
+  .delta-down { background: rgba(248,113,113,0.15); color: var(--red); }
+  .delta-warn { background: rgba(251,146,60,0.15); color: var(--orange); }
+  .delta-neutral { background: rgba(90,122,176,0.15); color: var(--text-2); }
+
+  /* iso label */
+  .lbl { font-family: monospace; fill: var(--text); font-size: 9px; }
+  .lbl-tag { font-family: monospace; fill: var(--accent); font-size: 11px; font-weight: 700; }
+  .lbl-bg { fill: #050b1a; }
+
+  /* === 移动端 === */
+  @media (max-width: 900px) {
+    html, body { height: auto; }
+    body { overflow: auto; }
+    .screen { width: 100%; height: auto; display: flex; flex-direction: column; padding: 8px; gap: 8px; }
+    .header { height: auto; min-height: 58px; padding: 10px 12px; flex-wrap: wrap; }
+    .header .logo, .header .meta { position: static; transform: none; }
+    .header h1 { font-size: 16px; letter-spacing: 2px; text-align: left; }
+    .header h1 .sub { display: block; margin: 4px 0 0; font-size: 11px; }
+    .main-area { grid-template-columns: 1fr; }
+    .left-kpis { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; }
+    .flow-center { height: 420px; }
+    .detail-right { grid-template-rows: none; }
+    .detail-right > .panel { min-height: 200px; }
+    .trend-row { grid-template-columns: repeat(2, 1fr); }
+    .trend-body { height: auto; }
+    .trend-panel { min-height: 220px; }
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">DCS · FLOW</div>
+    <h1>沿工艺走向大屏<span class="sub">PROCESS FLOW · 主工艺带与冷却回路并行</span></h1>
+    <div class="meta">
+      <div>当前时刻 <span id="tsNow">2026-10-15 17:00:00</span></div>
+      <div>主工艺 5 节点 · 冷却回路 3 节点 · 物料可追溯</div>
+    </div>
+  </div>
+
+  <!-- Main area -->
+  <div class="main-area">
+    <!-- Left KPI mini -->
+    <div class="left-kpis">
+      <div class="kpi-mini">
+        <div class="l">总库存 AGG-001</div>
+        <div class="v">141.73<span class="u">m³</span></div>
+        <div class="f"><span>126.50 t</span><span class="down">Δ -0.2</span></div>
+      </div>
+      <div class="kpi-mini">
+        <div class="l">主工艺流量 AGG-002</div>
+        <div class="v" style="color:var(--hot)">62.90<span class="u">m³/h</span></div>
+        <div class="f"><span>78.6% 负荷</span><span class="up">+5%</span></div>
+      </div>
+      <div class="kpi-mini">
+        <div class="l">总电耗 AGG-003</div>
+        <div class="v" style="color:var(--green)">49.56<span class="u">kW</span></div>
+        <div class="f"><span>3 泵</span><span class="down">-0.2</span></div>
+      </div>
+      <div class="kpi-mini">
+        <div class="l">热平衡 AGG-004</div>
+        <div class="v" style="color:var(--green)">-6.45<span class="u">%</span></div>
+        <div class="f"><span>Q_h 970</span><span>健康</span></div>
+      </div>
+    </div>
+
+    <!-- Center: process flow -->
+    <div class="panel flow-center">
+      <div class="panel-title">工艺走向 · LEFT → RIGHT</div>
+      <svg class="flow-svg" viewBox="0 0 1380 660" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="hotGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#f87171" stop-opacity="0.0"/>
+            <stop offset="20%" stop-color="#f87171" stop-opacity="0.4"/>
+            <stop offset="80%" stop-color="#fbbf24" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.0"/>
+          </linearGradient>
+          <linearGradient id="coldGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.0"/>
+            <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0.0"/>
+          </linearGradient>
+          <linearGradient id="tankGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1a3a6b" stop-opacity="0.7"/>
+            <stop offset="100%" stop-color="#0a1e3f" stop-opacity="0.9"/>
+          </linearGradient>
+          <linearGradient id="liqGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.7"/>
+            <stop offset="100%" stop-color="#0099cc" stop-opacity="0.8"/>
+          </linearGradient>
+          <pattern id="gridFlow" width="30" height="30" patternUnits="userSpaceOnUse">
+            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1f3a6b" stroke-width="0.4" opacity="0.4"/>
+          </pattern>
+          <radialGradient id="hotGlow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- background grid -->
+        <rect x="0" y="0" width="1380" height="660" fill="url(#gridFlow)" opacity="0.4"/>
+
+        <!-- band labels -->
+        <text x="40" y="60" fill="#fbbf24" font-size="13" letter-spacing="3" font-weight="700">主工艺 · HOT PROCESS LINE (75→45 °C)</text>
+        <text x="40" y="500" fill="#38bdf8" font-size="13" letter-spacing="3" font-weight="700">冷却回路 · COOLING LOOP (28→38 °C)</text>
+        <text x="40" y="640" fill="#5a7ab0" font-size="10" letter-spacing="2">介质流向</text>
+        <line x1="120" y1="635" x2="180" y2="635" stroke="#00d4ff" stroke-width="2" marker-end="url(#flowArr)"/>
+        <defs>
+          <marker id="flowArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M 0 0 L 6 3 L 0 6 Z" fill="#00d4ff"/>
+          </marker>
+        </defs>
+
+        <!-- ============== HOT MAIN LINE (top half) ============== -->
+        <!-- 5 stations: T-101 -> P-101A/B -> E-101 -> T-102 -> T-103 -->
+        <!-- x positions: 100, 380, 700, 980, 1280 (center) -->
+        <!-- y center: 220 for hot line -->
+
+        <!-- connecting pipe background -->
+        <rect x="100" y="265" width="1180" height="20" fill="url(#hotGrad)" stroke="#5a7ab0" stroke-width="1" rx="10"/>
+        <rect x="100" y="265" width="1180" height="20" fill="none" stroke="#fbbf24" stroke-width="0.6" opacity="0.5" rx="10"/>
+        <!-- animated flow indicator (orange particles moving right) -->
+        <g opacity="0.8">
+          <circle r="3" fill="#fbbf24" cy="275">
+            <animate attributeName="cx" values="100;1280" dur="6s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0;1;1;0" dur="6s" repeatCount="indefinite"/>
+          </circle>
+          <circle r="3" fill="#f87171" cy="275">
+            <animate attributeName="cx" values="100;1280" dur="6s" begin="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0;1;1;0" dur="6s" begin="2s" repeatCount="indefinite"/>
+          </circle>
+          <circle r="3" fill="#fbbf24" cy="275">
+            <animate attributeName="cx" values="100;1280" dur="6s" begin="4s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0;1;1;0" dur="6s" begin="4s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+
+        <!-- ===== Station 1: T-101 原液储罐 ===== -->
+        <g transform="translate(40,80)">
+          <!-- top tag bar -->
+          <rect x="0" y="0" width="140" height="22" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+          <text x="70" y="15" text-anchor="middle" class="lbl-tag">T-101 · 原液</text>
+          <!-- tank iso -->
+          <g transform="translate(20,40)">
+            <ellipse cx="50" cy="120" rx="50" ry="8" fill="#000" opacity="0.4"/>
+            <path d="M 0 20 L 0 115 A 50 6 0 0 0 100 115 L 100 20 Z" fill="url(#tankGrad)" stroke="#2a4d8c" stroke-width="1.2"/>
+            <!-- liquid 3.238/5.0 = 64.7% -> from top to ~36% down -->
+            <path d="M 0 42 L 0 115 A 50 6 0 0 0 100 115 L 100 42 Z" fill="url(#liqGrad)"/>
+            <ellipse cx="50" cy="20" rx="50" ry="6" fill="#0a1e3f" stroke="#2a4d8c" stroke-width="1.2"/>
+            <ellipse cx="50" cy="20" rx="44" ry="5" fill="none" stroke="#00d4ff" stroke-width="0.4" opacity="0.6"/>
+            <!-- level marker -->
+            <line x1="-3" y1="42" x2="3" y2="42" stroke="#00d4ff" stroke-width="1"/>
+            <text x="-6" y="45" class="lbl" fill="#00d4ff" text-anchor="end">3.24m</text>
+            <line x1="0" y1="42" x2="0" y2="20" stroke="#00d4ff" stroke-width="0.4" stroke-dasharray="2 2"/>
+          </g>
+          <!-- live values -->
+          <g transform="translate(0,180)">
+            <rect x="0" y="0" width="140" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="8" y="14" class="lbl" fill="#5a7ab0">液位 LI-101</text>
+            <text x="132" y="14" text-anchor="end" class="lbl" fill="#00d4ff" font-size="11" font-weight="700">3.24 m</text>
+            <text x="8" y="32" class="lbl" fill="#5a7ab0">体积</text>
+            <text x="132" y="32" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">40.7 m³</text>
+            <text x="8" y="50" class="lbl" fill="#5a7ab0">温度 TI-101</text>
+            <text x="132" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">25.5 °C</text>
+            <text x="8" y="68" class="lbl" fill="#5a7ab0">压力 PI-101</text>
+            <text x="132" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">5.0 kPa</text>
+          </g>
+          <!-- 24h micro trend -->
+          <g transform="translate(0,272)">
+            <rect x="0" y="0" width="140" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="8" y="14" class="lbl" fill="#5a7ab0">24h 液位</text>
+            <polyline points="10,42 18,40 26,42 34,38 42,40 50,36 58,38 66,34 74,36 82,32 90,34 98,30 106,32 114,28 122,30 130,28"
+                      fill="none" stroke="#00d4ff" stroke-width="1.2" opacity="0.9"/>
+            <text x="132" y="46" text-anchor="end" class="lbl" fill="#00d4ff" font-size="10">↑ 累积 +0.13m</text>
+          </g>
+          <!-- status -->
+          <g transform="translate(0,340)">
+            <rect x="0" y="0" width="140" height="20" fill="rgba(74,222,128,0.1)" stroke="#4ade80" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#4ade80"/>
+            <text x="20" y="14" class="lbl" fill="#4ade80" font-weight="700">正常 · 区间内</text>
+          </g>
+        </g>
+
+        <!-- ===== Station 2: P-101A/B 泵组 ===== -->
+        <g transform="translate(280,80)">
+          <rect x="0" y="0" width="200" height="22" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+          <text x="100" y="15" text-anchor="middle" class="lbl-tag">P-101A / B · 主用/备用</text>
+          <!-- Two pumps side by side -->
+          <g transform="translate(20,40)">
+            <!-- P-101A running -->
+            <ellipse cx="35" cy="100" rx="35" ry="5" fill="#000" opacity="0.4"/>
+            <circle cx="35" cy="55" r="32" fill="#14274a" stroke="#4ade80" stroke-width="1.5"/>
+            <circle cx="35" cy="55" r="24" fill="#0a1e3f" stroke="#1f3a6b"/>
+            <g transform="translate(35,55)">
+              <g>
+                <path d="M 0 0 Q 8 -5 12 0 Q 8 5 0 0 Z" fill="#4ade80" opacity="0.7"/>
+                <path d="M 0 0 Q 5 -8 0 -12 Q -5 -8 0 0 Z" fill="#4ade80" opacity="0.7"/>
+                <path d="M 0 0 Q -8 -5 -12 0 Q -8 5 0 0 Z" fill="#4ade80" opacity="0.7"/>
+                <path d="M 0 0 Q -5 8 0 12 Q 5 8 0 0 Z" fill="#4ade80" opacity="0.7"/>
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.6s" repeatCount="indefinite"/>
+              </g>
+              <circle r="3" fill="#050b1a" stroke="#4ade80"/>
+            </g>
+            <rect x="60" y="50" width="20" height="10" fill="#1f3a6b"/>
+            <text x="35" y="115" text-anchor="middle" class="lbl" fill="#4ade80" font-weight="700">P-101A</text>
+            <text x="35" y="128" text-anchor="middle" class="lbl" fill="#4ade80" font-size="8">主用 · RUN</text>
+          </g>
+          <g transform="translate(110,40)">
+            <ellipse cx="35" cy="100" rx="35" ry="5" fill="#000" opacity="0.3"/>
+            <circle cx="35" cy="55" r="32" fill="#0f1d3a" stroke="#5a7ab0" stroke-width="1.2" opacity="0.7"/>
+            <circle cx="35" cy="55" r="24" fill="#0a1e3f" stroke="#1f3a6b" opacity="0.7"/>
+            <g transform="translate(35,55)" opacity="0.5">
+              <path d="M 0 0 Q 8 -5 12 0 Q 8 5 0 0 Z" fill="#5a7ab0"/>
+              <path d="M 0 0 Q 5 -8 0 -12 Q -5 -8 0 0 Z" fill="#5a7ab0"/>
+              <path d="M 0 0 Q -8 -5 -12 0 Q -8 5 0 0 Z" fill="#5a7ab0"/>
+              <path d="M 0 0 Q -5 8 0 12 Q 5 8 0 0 Z" fill="#5a7ab0"/>
+              <circle r="3" fill="#050b1a" stroke="#5a7ab0"/>
+            </g>
+            <rect x="60" y="50" width="20" height="10" fill="#1f3a6b" opacity="0.7"/>
+            <text x="35" y="115" text-anchor="middle" class="lbl" fill="#5a7ab0" font-weight="700">P-101B</text>
+            <text x="35" y="128" text-anchor="middle" class="lbl" fill="#5a7ab0" font-size="8">备用 · STOP</text>
+          </g>
+          <!-- live values -->
+          <g transform="translate(0,180)">
+            <rect x="0" y="0" width="200" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">流量 FT-101A</text>
+            <text x="190" y="14" text-anchor="end" class="lbl" fill="#4ade80" font-size="11" font-weight="700">62.9 m³/h</text>
+            <text x="10" y="32" class="lbl" fill="#5a7ab0">电流 IT-101A</text>
+            <text x="190" y="32" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">56.2 A</text>
+            <text x="10" y="50" class="lbl" fill="#5a7ab0">频率 SZ-101A</text>
+            <text x="190" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">38.5 Hz</text>
+            <text x="10" y="68" class="lbl" fill="#5a7ab0">电功率 P-101A</text>
+            <text x="190" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">31.82 kW</text>
+          </g>
+          <!-- 24h micro trend -->
+          <g transform="translate(0,272)">
+            <rect x="0" y="0" width="200" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">24h 流量</text>
+            <polyline points="10,40 22,36 34,32 46,30 58,32 70,28 82,26 94,30 106,32 118,30 130,28 142,26 154,28 166,26 178,28 190,30"
+                      fill="none" stroke="#4ade80" stroke-width="1.2" opacity="0.9"/>
+            <text x="195" y="46" text-anchor="end" class="lbl" fill="#4ade80" font-size="10">波动 ±3.5%</text>
+          </g>
+          <!-- status -->
+          <g transform="translate(0,340)">
+            <rect x="0" y="0" width="200" height="20" fill="rgba(74,222,128,0.1)" stroke="#4ade80" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#4ade80"/>
+            <text x="20" y="14" class="lbl" fill="#4ade80" font-weight="700">主用运行 · 备用就绪 · 互备热备</text>
+          </g>
+        </g>
+
+        <!-- ===== Station 3: E-101 板式换热器 ===== -->
+        <g transform="translate(560,80)">
+          <rect x="0" y="0" width="180" height="22" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+          <text x="90" y="15" text-anchor="middle" class="lbl-tag">E-101 · 板式换热</text>
+          <!-- iso heat exchanger -->
+          <g transform="translate(20,40)">
+            <ellipse cx="70" cy="120" rx="70" ry="6" fill="#000" opacity="0.4"/>
+            <rect x="0" y="20" width="140" height="100" fill="#14274a" stroke="#2a4d8c" stroke-width="1.2"/>
+            <g stroke="#5a7ab0" stroke-width="0.4">
+              <line x1="0" y1="30" x2="140" y2="30"/>
+              <line x1="0" y1="40" x2="140" y2="40"/>
+              <line x1="0" y1="50" x2="140" y2="50"/>
+              <line x1="0" y1="60" x2="140" y2="60"/>
+              <line x1="0" y1="70" x2="140" y2="70"/>
+              <line x1="0" y1="80" x2="140" y2="80"/>
+              <line x1="0" y1="90" x2="140" y2="90"/>
+              <line x1="0" y1="100" x2="140" y2="100"/>
+              <line x1="0" y1="110" x2="140" y2="110"/>
+            </g>
+            <!-- top red (hot in) -->
+            <rect x="0" y="14" width="140" height="12" fill="#f87171" opacity="0.5"/>
+            <!-- bottom blue (cold out) -->
+            <rect x="0" y="114" width="140" height="12" fill="#38bdf8" opacity="0.5"/>
+            <rect x="0" y="20" width="140" height="100" fill="none" stroke="#00d4ff" stroke-width="1.2"/>
+            <!-- hot in/out -->
+            <rect x="-20" y="32" width="20" height="6" fill="#f87171"/>
+            <text x="-26" y="36" class="lbl" fill="#f87171" text-anchor="end" font-size="8">TI-102 75.2°</text>
+            <rect x="140" y="108" width="20" height="6" fill="#fbbf24"/>
+            <text x="166" y="112" class="lbl" fill="#fbbf24" font-size="8">TI-103 45.0°</text>
+            <!-- glow center -->
+            <ellipse cx="70" cy="70" rx="30" ry="20" fill="url(#hotGlow)"/>
+            <text x="70" y="74" text-anchor="middle" font-size="9" fill="#fbbf24" font-family="monospace" font-weight="700">970 kW</text>
+          </g>
+          <!-- live values -->
+          <g transform="translate(0,180)">
+            <rect x="0" y="0" width="180" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">热侧进口 TI-102</text>
+            <text x="170" y="14" text-anchor="end" class="lbl" fill="#f87171" font-size="11" font-weight="700">75.2 °C</text>
+            <text x="10" y="32" class="lbl" fill="#5a7ab0">热侧出口 TI-103</text>
+            <text x="170" y="32" text-anchor="end" class="lbl" fill="#fbbf24" font-size="10">45.0 °C</text>
+            <text x="10" y="50" class="lbl" fill="#5a7ab0">热侧 Q_hot</text>
+            <text x="170" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">970.1 kW</text>
+            <text x="10" y="68" class="lbl" fill="#5a7ab0">冷侧 Q_cold</text>
+            <text x="170" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">1036.9 kW</text>
+          </g>
+          <!-- 24h micro trend -->
+          <g transform="translate(0,272)">
+            <rect x="0" y="0" width="180" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">24h Q (热/冷)</text>
+            <polyline points="10,30 22,28 34,32 46,28 58,30 70,26 82,30 94,28 106,32 118,30 130,28 142,30 154,28 166,30 178,32"
+                      fill="none" stroke="#fbbf24" stroke-width="1.2" opacity="0.9"/>
+            <polyline points="10,42 22,40 34,42 46,38 58,40 70,38 82,42 94,38 106,42 118,40 130,38 142,40 154,38 166,40 178,42"
+                      fill="none" stroke="#38bdf8" stroke-width="1.2" opacity="0.7"/>
+            <text x="175" y="46" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">|Δ -6.45%|</text>
+          </g>
+          <!-- status -->
+          <g transform="translate(0,340)">
+            <rect x="0" y="0" width="180" height="20" fill="rgba(74,222,128,0.1)" stroke="#4ade80" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#4ade80"/>
+            <text x="20" y="14" class="lbl" fill="#4ade80" font-weight="700">热平衡 OK · |Δ| &lt; 10%</text>
+          </g>
+        </g>
+
+        <!-- ===== Station 4: T-102 缓冲储罐 ===== -->
+        <g transform="translate(820,80)">
+          <rect x="0" y="0" width="160" height="22" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+          <text x="80" y="15" text-anchor="middle" class="lbl-tag">T-102 · 缓冲</text>
+          <g transform="translate(30,40)">
+            <ellipse cx="50" cy="110" rx="50" ry="6" fill="#000" opacity="0.4"/>
+            <path d="M 0 20 L 0 105 A 50 6 0 0 0 100 105 L 100 20 Z" fill="url(#tankGrad)" stroke="#2a4d8c" stroke-width="1.2"/>
+            <!-- liquid 1.504/3.0 = 50.1% -> ~50% from top -->
+            <path d="M 0 62 L 0 105 A 50 6 0 0 0 100 105 L 100 62 Z" fill="url(#liqGrad)"/>
+            <ellipse cx="50" cy="20" rx="50" ry="6" fill="#0a1e3f" stroke="#2a4d8c" stroke-width="1.2"/>
+            <ellipse cx="50" cy="20" rx="44" ry="5" fill="none" stroke="#00d4ff" stroke-width="0.4" opacity="0.6"/>
+            <line x1="-3" y1="62" x2="3" y2="62" stroke="#00d4ff" stroke-width="1"/>
+            <text x="-6" y="65" class="lbl" fill="#00d4ff" text-anchor="end">1.50m</text>
+          </g>
+          <g transform="translate(0,170)">
+            <rect x="0" y="0" width="160" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">液位 LI-102</text>
+            <text x="150" y="14" text-anchor="end" class="lbl" fill="#00d4ff" font-size="11" font-weight="700">1.50 m</text>
+            <text x="10" y="32" class="lbl" fill="#5a7ab0">体积</text>
+            <text x="150" y="32" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">7.4 m³</text>
+            <text x="10" y="50" class="lbl" fill="#5a7ab0">温度 TI-106</text>
+            <text x="150" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">45.0 °C</text>
+            <text x="10" y="68" class="lbl" fill="#5a7ab0">压力 PI-106</text>
+            <text x="150" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">30.9 kPa</text>
+          </g>
+          <g transform="translate(0,262)">
+            <rect x="0" y="0" width="160" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">24h 液位</text>
+            <polyline points="10,40 22,38 34,36 46,38 58,34 70,36 82,38 94,34 106,36 118,38 130,34 142,36 154,38"
+                      fill="none" stroke="#00d4ff" stroke-width="1.2" opacity="0.9"/>
+            <text x="150" y="46" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">±0.04m</text>
+          </g>
+          <g transform="translate(0,322)">
+            <rect x="0" y="0" width="160" height="20" fill="rgba(74,222,128,0.1)" stroke="#4ade80" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#4ade80"/>
+            <text x="20" y="14" class="lbl" fill="#4ade80" font-weight="700">进出平衡 · 区间内</text>
+          </g>
+        </g>
+
+        <!-- ===== Station 5: T-103 成品储罐 ===== -->
+        <g transform="translate(1060,60)">
+          <rect x="0" y="0" width="200" height="22" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+          <text x="100" y="15" text-anchor="middle" class="lbl-tag">T-103 · 成品</text>
+          <g transform="translate(20,40)">
+            <ellipse cx="80" cy="160" rx="80" ry="8" fill="#000" opacity="0.4"/>
+            <path d="M 0 20 L 0 155 A 80 9 0 0 0 160 155 L 160 20 Z" fill="url(#tankGrad)" stroke="#2a4d8c" stroke-width="1.2"/>
+            <!-- liquid 4.77/8.0 = 59.6% -->
+            <path d="M 0 64 L 0 155 A 80 9 0 0 0 160 155 L 160 64 Z" fill="url(#liqGrad)"/>
+            <ellipse cx="80" cy="20" rx="80" ry="9" fill="#0a1e3f" stroke="#2a4d8c" stroke-width="1.2"/>
+            <ellipse cx="80" cy="20" rx="72" ry="8" fill="none" stroke="#00d4ff" stroke-width="0.4" opacity="0.6"/>
+            <line x1="-3" y1="64" x2="3" y2="64" stroke="#00d4ff" stroke-width="1"/>
+            <text x="-6" y="67" class="lbl" fill="#00d4ff" text-anchor="end">4.77m</text>
+          </g>
+          <g transform="translate(0,220)">
+            <rect x="0" y="0" width="200" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">液位 LI-103</text>
+            <text x="190" y="14" text-anchor="end" class="lbl" fill="#00d4ff" font-size="11" font-weight="700">4.77 m</text>
+            <text x="10" y="32" class="lbl" fill="#5a7ab0">体积</text>
+            <text x="190" y="32" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">93.7 m³</text>
+            <text x="10" y="50" class="lbl" fill="#5a7ab0">质量</text>
+            <text x="190" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">82.4 t</text>
+            <text x="10" y="68" class="lbl" fill="#5a7ab0">温度 TI-107</text>
+            <text x="190" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">35.1 °C</text>
+          </g>
+          <g transform="translate(0,310)">
+            <rect x="0" y="0" width="200" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">24h 液位 (装车外运)</text>
+            <polyline points="10,40 22,38 34,40 46,36 58,38 70,34 82,36 94,32 106,34 118,30 130,32 142,28 154,30 166,26 178,28 190,24"
+                      fill="none" stroke="#00d4ff" stroke-width="1.2" opacity="0.9"/>
+            <text x="195" y="46" text-anchor="end" class="lbl" fill="#4ade80" font-size="10">↓ 装车 -0.08m</text>
+          </g>
+          <g transform="translate(0,370)">
+            <rect x="0" y="0" width="200" height="20" fill="rgba(74,222,128,0.1)" stroke="#4ade80" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#4ade80"/>
+            <text x="20" y="14" class="lbl" fill="#4ade80" font-weight="700">装车外运 · 准备就绪</text>
+          </g>
+        </g>
+
+        <!-- ============== COOLING LOOP (bottom half) ============== -->
+        <!-- Reverse direction: RET-201 (left) -> E-101 -> P-201 (right) -->
+        <!-- y center: 540 for cold line -->
+
+        <!-- 3 stations: SUP-201 (start, left) -> P-201 -> E-101 (right) -> RET-201 (end) -->
+        <!-- Actually for cooling: water supply comes in, goes to P-201, then to E-101 cold side, then to RET-201 -->
+
+        <rect x="100" y="510" width="1180" height="20" fill="url(#coldGrad)" stroke="#5a7ab0" stroke-width="1" rx="10"/>
+        <rect x="100" y="510" width="1180" height="20" fill="none" stroke="#38bdf8" stroke-width="0.6" opacity="0.5" rx="10"/>
+        <!-- animated flow particles moving right -->
+        <g opacity="0.8">
+          <circle r="3" fill="#38bdf8" cy="520">
+            <animate attributeName="cx" values="100;1280" dur="8s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0;1;1;0" dur="8s" repeatCount="indefinite"/>
+          </circle>
+          <circle r="3" fill="#0ea5e9" cy="520">
+            <animate attributeName="cx" values="100;1280" dur="8s" begin="4s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0;1;1;0" dur="8s" begin="4s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+
+        <!-- ===== Cooling Station 1: SUP-201 供水 ===== -->
+        <g transform="translate(40,400)">
+          <rect x="0" y="0" width="140" height="22" fill="#050b1a" stroke="#38bdf8" rx="2"/>
+          <text x="70" y="15" text-anchor="middle" class="lbl-tag" fill="#38bdf8">SUP-201 · 供水</text>
+          <!-- pool icon -->
+          <g transform="translate(20,40)">
+            <rect x="0" y="0" width="100" height="100" fill="#0a1e3f" stroke="#38bdf8" stroke-width="1.2"/>
+            <!-- water with waves -->
+            <path d="M 0 70 Q 20 60 40 70 T 80 70 T 100 70 L 100 100 L 0 100 Z" fill="#38bdf8" opacity="0.5"/>
+            <path d="M 0 80 Q 20 72 40 80 T 80 80 T 100 80 L 100 100 L 0 100 Z" fill="#0ea5e9" opacity="0.5"/>
+            <text x="50" y="20" text-anchor="middle" class="lbl" fill="#38bdf8" font-size="10">冷却水池</text>
+            <text x="50" y="92" text-anchor="middle" class="lbl" fill="#5a7ab0" font-size="8">≈ 50 m³</text>
+            <path d="M 0 70 Q 20 60 40 70 T 80 70 T 100 70" fill="none" stroke="#38bdf8" stroke-width="0.6" opacity="0.8">
+              <animate attributeName="d" values="M 0 70 Q 20 60 40 70 T 80 70 T 100 70;M 0 70 Q 20 80 40 70 T 80 70 T 100 70;M 0 70 Q 20 60 40 70 T 80 70 T 100 70" dur="3s" repeatCount="indefinite"/>
+            </path>
+          </g>
+          <g transform="translate(0,170)">
+            <rect x="0" y="0" width="140" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">供水温度 TI-201</text>
+            <text x="130" y="14" text-anchor="end" class="lbl" fill="#38bdf8" font-size="11" font-weight="700">28.1 °C</text>
+            <text x="10" y="32" class="lbl" fill="#5a7ab0">供水压力 PI-201</text>
+            <text x="130" y="32" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">245.5 kPa</text>
+            <text x="10" y="50" class="lbl" fill="#5a7ab0">总管流量 FQ-201</text>
+            <text x="130" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">88.0 m³/h</text>
+            <text x="10" y="68" class="lbl" fill="#5a7ab0">池容估算</text>
+            <text x="130" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">50 m³</text>
+          </g>
+          <g transform="translate(0,262)">
+            <rect x="0" y="0" width="140" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">24h 供水温度</text>
+            <polyline points="10,40 22,38 34,40 46,36 58,38 70,34 82,36 94,32 106,34 118,30 130,32"
+                      fill="none" stroke="#38bdf8" stroke-width="1.2" opacity="0.9"/>
+            <text x="135" y="46" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">26~30 °C</text>
+          </g>
+          <g transform="translate(0,322)">
+            <rect x="0" y="0" width="140" height="20" fill="rgba(74,222,128,0.1)" stroke="#4ade80" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#4ade80"/>
+            <text x="20" y="14" class="lbl" fill="#4ade80" font-weight="700">供水正常</text>
+          </g>
+        </g>
+
+        <!-- ===== Cooling Station 2: P-201 冷却泵 ===== -->
+        <g transform="translate(380,400)">
+          <rect x="0" y="0" width="200" height="22" fill="#050b1a" stroke="#38bdf8" rx="2"/>
+          <text x="100" y="15" text-anchor="middle" class="lbl-tag" fill="#38bdf8">P-201 · 冷却水循环泵</text>
+          <g transform="translate(70,40)">
+            <ellipse cx="35" cy="100" rx="35" ry="5" fill="#000" opacity="0.4"/>
+            <circle cx="35" cy="55" r="32" fill="#14274a" stroke="#38bdf8" stroke-width="1.5"/>
+            <circle cx="35" cy="55" r="24" fill="#0a1e3f" stroke="#1f3a6b"/>
+            <g transform="translate(35,55)">
+              <g>
+                <path d="M 0 0 Q 8 -5 12 0 Q 8 5 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <path d="M 0 0 Q 5 -8 0 -12 Q -5 -8 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <path d="M 0 0 Q -8 -5 -12 0 Q -8 5 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <path d="M 0 0 Q -5 8 0 12 Q 5 8 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.6s" repeatCount="indefinite"/>
+              </g>
+              <circle r="3" fill="#050b1a" stroke="#38bdf8"/>
+            </g>
+            <rect x="60" y="50" width="20" height="10" fill="#1f3a6b"/>
+            <rect x="-20" y="50" width="20" height="10" fill="#1f3a6b"/>
+            <text x="35" y="115" text-anchor="middle" class="lbl" fill="#38bdf8" font-weight="700">P-201</text>
+            <text x="35" y="128" text-anchor="middle" class="lbl" fill="#38bdf8" font-size="8">冷却 · RUN</text>
+          </g>
+          <g transform="translate(0,180)">
+            <rect x="0" y="0" width="200" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">流量 FT-201</text>
+            <text x="190" y="14" text-anchor="end" class="lbl" fill="#38bdf8" font-size="11" font-weight="700">88.0 m³/h</text>
+            <text x="10" y="32" class="lbl" fill="#5a7ab0">电流 IT-201</text>
+            <text x="190" y="32" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">31.7 A</text>
+            <text x="10" y="50" class="lbl" fill="#5a7ab0">回水温度 TI-202</text>
+            <text x="190" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">38.6 °C</text>
+            <text x="10" y="68" class="lbl" fill="#5a7ab0">电功率</text>
+            <text x="190" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">17.74 kW</text>
+          </g>
+          <g transform="translate(0,272)">
+            <rect x="0" y="0" width="200" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">24h 流量</text>
+            <polyline points="10,40 22,36 34,38 46,34 58,36 70,32 82,34 94,30 106,32 118,28 130,30 142,32 154,28 166,30 178,32 190,30"
+                      fill="none" stroke="#38bdf8" stroke-width="1.2" opacity="0.9"/>
+            <text x="195" y="46" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">88 ± 2 m³/h</text>
+          </g>
+          <g transform="translate(0,332)">
+            <rect x="0" y="0" width="200" height="20" fill="rgba(56,189,248,0.1)" stroke="#38bdf8" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#38bdf8"/>
+            <text x="20" y="14" class="lbl" fill="#38bdf8" font-weight="700">冷却循环 · 流量稳定</text>
+          </g>
+        </g>
+
+        <!-- ===== Cooling Station 3: RET-201 回水 ===== -->
+        <g transform="translate(1140,400)">
+          <rect x="0" y="0" width="160" height="22" fill="#050b1a" stroke="#38bdf8" rx="2"/>
+          <text x="80" y="15" text-anchor="middle" class="lbl-tag" fill="#38bdf8">RET-201 · 回水</text>
+          <g transform="translate(30,40)">
+            <rect x="0" y="0" width="100" height="100" fill="#0a1e3f" stroke="#38bdf8" stroke-width="1.2"/>
+            <path d="M 0 50 Q 20 40 40 50 T 80 50 T 100 50 L 100 100 L 0 100 Z" fill="#38bdf8" opacity="0.5"/>
+            <path d="M 0 65 Q 20 55 40 65 T 80 65 T 100 65 L 100 100 L 0 100 Z" fill="#0ea5e9" opacity="0.5"/>
+            <text x="50" y="20" text-anchor="middle" class="lbl" fill="#38bdf8" font-size="10">回水</text>
+            <text x="50" y="92" text-anchor="middle" class="lbl" fill="#5a7ab0" font-size="8">已升温</text>
+            <path d="M 0 50 Q 20 40 40 50 T 80 50 T 100 50" fill="none" stroke="#38bdf8" stroke-width="0.6" opacity="0.8">
+              <animate attributeName="d" values="M 0 50 Q 20 40 40 50 T 80 50 T 100 50;M 0 50 Q 20 60 40 50 T 80 50 T 100 50;M 0 50 Q 20 40 40 50 T 80 50 T 100 50" dur="3s" repeatCount="indefinite"/>
+            </path>
+          </g>
+          <g transform="translate(0,170)">
+            <rect x="0" y="0" width="160" height="80" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">回水温度 TI-202</text>
+            <text x="150" y="14" text-anchor="end" class="lbl" fill="#38bdf8" font-size="11" font-weight="700">38.6 °C</text>
+            <text x="10" y="32" class="lbl" fill="#5a7ab0">回水压力 PI-202</text>
+            <text x="150" y="32" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">200.9 kPa</text>
+            <text x="10" y="50" class="lbl" fill="#5a7ab0">ΔT 冷侧</text>
+            <text x="150" y="50" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">+10.5 °C</text>
+            <text x="10" y="68" class="lbl" fill="#5a7ab0">放热 Q_cold</text>
+            <text x="150" y="68" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">1036.9 kW</text>
+          </g>
+          <g transform="translate(0,262)">
+            <rect x="0" y="0" width="160" height="50" fill="rgba(10,20,40,0.7)" stroke="#1f3a6b" rx="2"/>
+            <text x="10" y="14" class="lbl" fill="#5a7ab0">24h 回水温度</text>
+            <polyline points="10,40 22,36 34,38 46,34 58,36 70,30 82,32 94,28 106,30 118,26 130,28 142,24 154,26"
+                      fill="none" stroke="#38bdf8" stroke-width="1.2" opacity="0.9"/>
+            <text x="155" y="46" text-anchor="end" class="lbl" fill="#d6e4ff" font-size="10">36~40 °C</text>
+          </g>
+          <g transform="translate(0,322)">
+            <rect x="0" y="0" width="160" height="20" fill="rgba(56,189,248,0.1)" stroke="#38bdf8" rx="2"/>
+            <circle cx="10" cy="10" r="3" fill="#38bdf8"/>
+            <text x="20" y="14" class="lbl" fill="#38bdf8" font-weight="700">回水正常</text>
+          </g>
+        </g>
+
+        <!-- ===== Material traceability (mass flow meter) ===== -->
+        <g transform="translate(220,600)">
+          <text x="0" y="0" fill="#5a7ab0" font-size="11" letter-spacing="2">物料可追溯 · MASS FLOW</text>
+          <g transform="translate(0,8)">
+            <rect x="0" y="0" width="940" height="40" fill="rgba(10,20,40,0.5)" stroke="#1f3a6b" rx="2"/>
+            <!-- stages -->
+            <g font-size="10" font-family="monospace">
+              <text x="80" y="16" text-anchor="middle" fill="#5a7ab0">进料 T-101</text>
+              <text x="80" y="30" text-anchor="middle" fill="#00d4ff" font-size="13" font-weight="700">37.4 t</text>
+              <text x="260" y="16" text-anchor="middle" fill="#5a7ab0">主泵出 P-101A</text>
+              <text x="260" y="30" text-anchor="middle" fill="#4ade80" font-size="13" font-weight="700">62.9 m³/h</text>
+              <text x="440" y="16" text-anchor="middle" fill="#5a7ab0">热侧 Q_hot</text>
+              <text x="440" y="30" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="700">970 kW</text>
+              <text x="620" y="16" text-anchor="middle" fill="#5a7ab0">缓冲 T-102</text>
+              <text x="620" y="30" text-anchor="middle" fill="#00d4ff" font-size="13" font-weight="700">6.6 t</text>
+              <text x="800" y="16" text-anchor="middle" fill="#5a7ab0">成品 T-103</text>
+              <text x="800" y="30" text-anchor="middle" fill="#00d4ff" font-size="13" font-weight="700">82.5 t</text>
+            </g>
+            <!-- arrows between -->
+            <g stroke="#5a7ab0" stroke-width="1" fill="none">
+              <line x1="120" y1="22" x2="200" y2="22" marker-end="url(#flowArr)"/>
+              <line x1="300" y1="22" x2="380" y2="22" marker-end="url(#flowArr)"/>
+              <line x1="480" y1="22" x2="560" y2="22" marker-end="url(#flowArr)"/>
+              <line x1="660" y1="22" x2="740" y2="22" marker-end="url(#flowArr)"/>
+            </g>
+          </g>
+        </g>
+
+      </svg>
+    </div>
+
+    <!-- Right detail -->
+    <div class="detail-right">
+      <div class="panel">
+        <div class="panel-title">工艺节拍 · PROCESS CYCLE</div>
+        <div class="panel-body" style="padding:36px 14px 14px;">
+          <div class="cycle-block">
+            <div style="font-size:11px; color: var(--text-2); margin-bottom: 6px;">进料速率 (T-101 累积)</div>
+            <div style="font-size: 24px; color: var(--green); font-family: monospace; font-weight: 700;">+0.013 t/h</div>
+            <div style="font-size: 10px; color: var(--text-3); margin-top: 4px;">节拍 ≈ 0.05 m³/min</div>
+          </div>
+          <div style="height: 1px; background: var(--line); margin: 10px 0;"></div>
+          <div class="cycle-block">
+            <div style="font-size:11px; color: var(--text-2); margin-bottom: 6px;">主工艺通过量</div>
+            <div style="font-size: 24px; color: var(--hot); font-family: monospace; font-weight: 700;">62.9 m³/h</div>
+            <div style="font-size: 10px; color: var(--text-3); margin-top: 4px;">E-101 ΔT 30.2 °C</div>
+          </div>
+          <div style="height: 1px; background: var(--line); margin: 10px 0;"></div>
+          <div class="cycle-block">
+            <div style="font-size:11px; color: var(--text-2); margin-bottom: 6px;">装车速率 (T-103 出料)</div>
+            <div style="font-size: 24px; color: var(--blue); font-family: monospace; font-weight: 700;">-0.08 m/h</div>
+            <div style="font-size: 10px; color: var(--text-3); margin-top: 4px;">外运 ~32 m³/h</div>
+          </div>
+          <div style="height: 1px; background: var(--line); margin: 10px 0;"></div>
+          <div class="cycle-block">
+            <div style="font-size:11px; color: var(--text-2); margin-bottom: 6px;">系统瓶颈</div>
+            <div style="font-size: 14px; color: var(--orange); font-family: monospace; font-weight: 700;">无 · 全部 5 节点健康</div>
+            <div style="font-size: 10px; color: var(--text-3); margin-top: 4px;">最近瓶颈 2026-10-13 18:00</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">事件流 · EVENT STREAM</div>
+        <div class="panel-body" style="padding:36px 14px 14px;">
+          <div class="evt-list">
+            <div class="evt-item"><div class="t">17:00:00</div><div class="m"><span class="lvl lvl-ok">OK</span>5 节点自检通过</div></div>
+            <div class="evt-item"><div class="t">16:55:12</div><div class="m"><span class="lvl lvl-info">INFO</span>P-101A 频率稳态</div></div>
+            <div class="evt-item"><div class="t">16:48:30</div><div class="m"><span class="lvl lvl-info">INFO</span>T-101 液位 3.24m</div></div>
+            <div class="evt-item"><div class="t">16:30:00</div><div class="m"><span class="lvl lvl-info">INFO</span>E-101 Δ-6.45% 收敛</div></div>
+            <div class="evt-item"><div class="t">15:12:45</div><div class="m"><span class="lvl lvl-warn">WARN</span>TI-104 突跳 ±1.2°C</div></div>
+            <div class="evt-item"><div class="t">14:00:00</div><div class="m"><span class="lvl lvl-info">INFO</span>峰段 +5% 流量</div></div>
+            <div class="evt-item"><div class="t">12:00:00</div><div class="m"><span class="lvl lvl-info">INFO</span>7d 快照落库</div></div>
+            <div class="evt-item"><div class="t">09:30:21</div><div class="m"><span class="lvl lvl-info">INFO</span>P-201 启动</div></div>
+            <div class="evt-item"><div class="t">08:00:00</div><div class="m"><span class="lvl lvl-info">INFO</span>主用 P-101A 启动</div></div>
+            <div class="evt-item"><div class="t">00:00:00</div><div class="m"><span class="lvl lvl-ok">OK</span>32 测点采集正常</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: 4 trend charts -->
+  <div class="trend-row">
+    <div class="panel trend-panel">
+      <div class="panel-title">T-101 液位 · 24h</div>
+      <div class="trend-body">
+        <div class="trend-stat">
+          <div class="stat-v">3.24<span class="u">m</span></div>
+          <div class="stat-d delta-up">↑ 0.13 m</div>
+        </div>
+        <canvas id="chart1" style="height:180px"></canvas>
+      </div>
+    </div>
+    <div class="panel trend-panel">
+      <div class="panel-title">主工艺流量 · 24h</div>
+      <div class="trend-body">
+        <div class="trend-stat">
+          <div class="stat-v" style="color:var(--hot)">62.9<span class="u">m³/h</span></div>
+          <div class="stat-d delta-up">↑ 2.6%</div>
+        </div>
+        <canvas id="chart2" style="height:180px"></canvas>
+      </div>
+    </div>
+    <div class="panel trend-panel">
+      <div class="panel-title">总电耗 · 24h</div>
+      <div class="trend-body">
+        <div class="trend-stat">
+          <div class="stat-v" style="color:var(--green)">49.56<span class="u">kW</span></div>
+          <div class="stat-d delta-down">↓ 0.2</div>
+        </div>
+        <canvas id="chart3" style="height:180px"></canvas>
+      </div>
+    </div>
+    <div class="panel trend-panel">
+      <div class="panel-title">热平衡偏差 · 24h</div>
+      <div class="trend-body">
+        <div class="trend-stat">
+          <div class="stat-v" style="color:var(--green)">-6.45<span class="u">%</span></div>
+          <div class="stat-d delta-up">健康</div>
+        </div>
+        <canvas id="chart4" style="height:180px"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ts = window.TS_24H || [];
+const SR = window.SERIES || {};
+const commonOpts = (unit, color) => ({
+  responsive: true, maintainAspectRatio: false,
+  plugins: {legend: {display: false}, tooltip: {backgroundColor: '#0a1428', borderColor: '#1f3a6b', borderWidth: 1, titleColor: '#00d4ff', bodyColor: '#d6e4ff'}},
+  scales: {
+    x: {ticks: {color: '#5a7ab0', font: {size: 9}, maxRotation: 0, autoSkip: true, maxTicksLimit: 6}, grid: {color: 'rgba(31,58,107,0.4)'}},
+    y: {ticks: {color: '#5a7ab0', font: {size: 9}, callback: v => v + ' '+unit}, grid: {color: 'rgba(31,58,107,0.4)'}}
+  }
+});
+
+function line(id, datasets, opts) {
+  const el = document.getElementById(id);
+  if (!el || !window.Chart) return null;
+  return new Chart(el.getContext('2d'), {type: 'line', data: {labels: ts, datasets: datasets}, options: opts});
+}
+
+line('chart1', [{data: SR.li101_24h || [], borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.15)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5}], commonOpts('m'));
+line('chart2', [{data: SR.flow_24h || [], borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.15)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5}], commonOpts('m³/h'));
+line('chart3', [{data: SR.power_24h || [], borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.15)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5}], commonOpts('kW'));
+line('chart4', [
+    {data: SR.qhot_24h || [], borderColor: '#fbbf24', tension: 0.3, pointRadius: 0, borderWidth: 1.5, fill: false, yAxisID: 'y1'},
+    {data: SR.qcold_24h || [], borderColor: '#38bdf8', tension: 0.3, pointRadius: 0, borderWidth: 1.5, fill: false, yAxisID: 'y1'},
+    {data: SR.imb_24h || [], borderColor: '#c084fc', tension: 0.3, pointRadius: 0, borderWidth: 1.5, borderDash: [4,3], yAxisID: 'y2', fill: false}
+  ], {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {legend: {display: false}, tooltip: {backgroundColor: '#0a1428', borderColor: '#1f3a6b', borderWidth: 1, titleColor: '#00d4ff', bodyColor: '#d6e4ff', mode: 'index', intersect: false}},
+    scales: {
+      x: {ticks: {color: '#5a7ab0', font: {size: 9}, maxRotation: 0, autoSkip: true, maxTicksLimit: 6}, grid: {color: 'rgba(31,58,107,0.4)'}},
+      y1: {position: 'left', ticks: {color: '#5a7ab0', font: {size: 9}, callback: v=>v+' kW'}, grid: {color: 'rgba(31,58,107,0.4)'}},
+      y2: {position: 'right', ticks: {color: '#c084fc', font: {size: 9}, callback: v=>v+' %'}, grid: {display: false}}
+    }
+  });
+
+const tsEl = document.getElementById('tsNow');
+if (tsEl) tsEl.textContent = (window.CURRENT_TS || new Date().toISOString()).replace('T',' ').slice(0,19);
+
+/* ===== 动画性能治理：SMIL -> 单一 RAF 驱动 =====
+   原实现由 14 个 <animate>/<animateTransform> 各自独立计时、各自触发 SVG 重绘；
+   改为一条 RAF 时间线统一驱动 + 30fps 节流 + 页面隐藏暂停，帧间隔稳定、CPU 占用显著下降。 */
+(function () {
+  var svg = document.querySelector('.flow-svg');
+  if (!svg) return;
+  var items = [];
+
+  // 1) 流向粒子：cx 位移 + 首尾淡入淡出
+  svg.querySelectorAll('animate[attributeName="cx"]').forEach(function (a) {
+    var el = a.parentNode;
+    var vals = (a.getAttribute('values') || '100;1280').split(';').map(parseFloat);
+    var op = el.querySelector('animate[attributeName="opacity"]');
+    if (op) op.remove();
+    a.remove();
+    items.push({
+      t: 'cx', el: el, from: vals[0], to: vals[1],
+      dur: parseFloat(a.getAttribute('dur')) || 6,
+      begin: parseFloat(a.getAttribute('begin')) || 0
+    });
+  });
+
+  // 2) 波浪路径：用正弦实时生成，替代离散路径切换
+  svg.querySelectorAll('animate[attributeName="d"]').forEach(function (a) {
+    var el = a.parentNode;
+    var ds = (a.getAttribute('values') || '').split(';');
+    a.remove();
+    var m = ds[0] && ds[0].match(/Q\s+(\d+)\s+(\d+)/);
+    var mb = ds[0] && ds[0].match(/M\s+0\s+(\d+)/);
+    if (!m || !mb) return;
+    var x1 = parseFloat(m[1]), base = parseFloat(mb[1]), amp = base - parseFloat(m[2]);
+    items.push({ t: 'd', el: el, x1: x1, base: base, amp: amp, dur: parseFloat(a.getAttribute('dur')) || 3 });
+  });
+
+  // 3) 叶轮旋转
+  svg.querySelectorAll('animateTransform[type="rotate"]').forEach(function (a) {
+    var el = a.parentNode;
+    a.remove();
+    items.push({ t: 'rot', el: el, dur: parseFloat(a.getAttribute('dur')) || 0.6 });
+  });
+
+  if (!items.length) return;
+
+  function fade(u) { return u < 0.12 ? u / 0.12 : (u > 0.88 ? (1 - u) / 0.12 : 1); }
+
+  var clock = 0, acc = 0, last = 0, raf = 0;
+  var STEP = 1 / 30;   // SVG 重绘成本高，30fps 已足够顺滑
+
+  function tick(now) {
+    raf = requestAnimationFrame(tick);
+    var dt = last ? (now - last) / 1000 : 0.016;
+    last = now;
+    if (dt > 0.1) dt = 0.1;
+    acc += dt;
+    if (acc < STEP) return;
+    clock += acc; acc = 0;
+
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.t === 'cx') {
+        var u = ((clock + it.begin) % it.dur) / it.dur;
+        it.el.setAttribute('cx', (it.from + (it.to - it.from) * u).toFixed(1));
+        it.el.setAttribute('opacity', fade(u).toFixed(2));
+      } else if (it.t === 'd') {
+        var s = Math.sin(clock * Math.PI * 2 / it.dur);
+        it.el.setAttribute('d', 'M 0 ' + it.base + ' Q ' + it.x1 + ' ' + (it.base - it.amp * s).toFixed(1) +
+          ' ' + (it.x1 * 2) + ' ' + it.base + ' T ' + (it.x1 * 4) + ' ' + it.base + ' T ' + (it.x1 * 5) + ' ' + it.base);
+      } else if (it.t === 'rot') {
+        it.el.setAttribute('transform', 'rotate(' + (((clock % it.dur) / it.dur) * 360).toFixed(1) + ')');
+      }
+    }
+  }
+  function start() { if (!raf) { last = 0; raf = requestAnimationFrame(tick); } }
+  function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
+  document.addEventListener('visibilitychange', function () { document.hidden ? stop() : start(); });
+  start();
+})();
+</script>
+
+<!-- ===== 页面导航 & 画布自适应 ===== -->
+<script src="./nav.js"></script>
+<script src="./fit-screen.js"></script>
+</body>
+</html>

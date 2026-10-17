@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2, viewport-fit=cover">
+<title>工艺全景大屏 · 化工储罐能源段</title>
+<script src="./vendor/chart.umd.min.js"></script>
+<script>window.Chart||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/scr'+'ipt>');</script>
+<script src="./data.js"></script>
+<style>
+  :root {
+    --bg-0: #050b1a;
+    --bg-1: #0a1428;
+    --bg-2: #0f1d3a;
+    --bg-3: #14274a;
+    --line: #1f3a6b;
+    --line-2: #2a4d8c;
+    --text: #d6e4ff;
+    --text-2: #8aa5d3;
+    --text-3: #5a7ab0;
+    --accent: #00d4ff;
+    --accent-2: #0099cc;
+    --green: #4ade80;
+    --blue: #38bdf8;
+    --orange: #fb923c;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --purple: #c084fc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #0a1e3f 0%, var(--bg-0) 70%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .screen {
+    width: 1920px;
+    height: 1080px;
+    display: grid;
+    grid-template-rows: 70px 150px 1fr 230px;
+    grid-template-columns: 280px 1fr 360px;
+    grid-template-areas:
+      "header header header"
+      "kpi kpi kpi"
+      "tree center right"
+      "detail detail detail";
+    gap: 10px;
+    padding: 10px;
+  }
+  .panel {
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.65) 0%, rgba(10, 20, 40, 0.65) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
+  }
+  .panel-title {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    background: linear-gradient(90deg, rgba(0,212,255,0.15) 0%, transparent 100%);
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--accent);
+    margin-right: 8px;
+    box-shadow: 0 0 6px var(--accent);
+  }
+  .panel-body { padding: 36px 14px 14px; height: 100%; overflow: hidden; }
+
+  /* === Header === */
+  .header {
+    grid-area: header;
+    background: linear-gradient(90deg, #0a1e3f 0%, #0f2a55 50%, #0a1e3f 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding: 0 30px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before, .header::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 200px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.08), transparent);
+  }
+  .header::before { left: 0; }
+  .header::after { right: 0; transform: scaleX(-1); }
+  .header h1 {
+    flex: 1;
+    text-align: center;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    background: linear-gradient(180deg, #ffffff 0%, #6bb6ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+  }
+  .header h1 .sub {
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--text-2);
+    margin-left: 12px;
+    -webkit-text-fill-color: var(--text-2);
+  }
+  .header .meta {
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: right;
+    font-size: 12px;
+    color: var(--text-2);
+    line-height: 1.6;
+  }
+  .header .logo {
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--accent);
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  .header .logo::before {
+    content: '';
+    width: 22px; height: 22px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 0 12px var(--accent);
+  }
+  .header .logo::after {
+    content: '';
+    position: absolute;
+    left: 38px; top: 50%;
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    transform: translateY(-50%);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+    50% { opacity: 0.5; transform: translateY(-50%) scale(1.4); }
+  }
+
+  /* === KPI Cards === */
+  .kpis {
+    grid-area: kpi;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .kpi {
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.8) 0%, rgba(10, 20, 40, 0.8) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 1fr 130px;
+    grid-template-rows: auto 1fr auto;
+    gap: 4px 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 60px; height: 60px;
+    background: radial-gradient(circle at top right, rgba(0,212,255,0.2), transparent 70%);
+  }
+  .kpi-label {
+    grid-column: 1;
+    font-size: 12px;
+    color: var(--text-2);
+    letter-spacing: 2px;
+    grid-row: 1;
+  }
+  .kpi-tag {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+    font-size: 10px;
+    color: var(--text-3);
+  }
+  .kpi-value {
+    grid-column: 1;
+    grid-row: 2;
+    font-family: "DIN Alternate", "Consolas", monospace;
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1.1;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  }
+  .kpi-unit {
+    font-size: 14px;
+    color: var(--text-2);
+    margin-left: 4px;
+    font-weight: 400;
+  }
+  .kpi-spark {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    align-self: stretch;
+  }
+  .kpi-spark canvas { width: 130px !important; height: 100% !important; }
+  .kpi-foot {
+    grid-column: 1;
+    grid-row: 3;
+    display: flex;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  .kpi-foot .delta-up { color: var(--green); }
+  .kpi-foot .delta-down { color: var(--red); }
+  .kpi-foot .delta-warn { color: var(--orange); }
+
+  /* === Tree panel === */
+  .tree-panel { grid-area: tree; }
+  .tree-list { padding: 4px 0; }
+  .tree-item {
+    padding: 9px 12px;
+    border-bottom: 1px dashed var(--line);
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+  }
+  .tree-item:hover { background: rgba(0, 212, 255, 0.08); }
+  .tree-item.active { background: rgba(0, 212, 255, 0.15); border-left: 3px solid var(--accent); }
+  .tree-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px currentColor;
+  }
+  .tree-dot.stop { background: var(--text-3); }
+  .tree-dot.warn { background: var(--orange); }
+  .tree-info { display: flex; flex-direction: column; }
+  .tree-tag { font-size: 13px; color: var(--text); font-weight: 600; }
+  .tree-name { font-size: 11px; color: var(--text-2); }
+  .tree-meta { font-size: 10px; color: var(--text-3); text-align: right; }
+
+  /* === Center === */
+  .center {
+    grid-area: center;
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.65) 0%, rgba(10, 20, 40, 0.65) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .center .panel-title {
+    background: linear-gradient(90deg, rgba(0,212,255,0.15) 0%, transparent 100%);
+  }
+  .scene-svg { width: 100%; height: calc(100% - 30px); display: block; }
+
+  /* === 3D 场景容器（Three.js 接管后启用） === */
+  .scene-3d {
+    position: absolute; left: 0; right: 0; top: 30px; bottom: 0;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 40%, #0d2145 0%, #050b1a 72%);
+  }
+  .scene-3d canvas { display: block; touch-action: none; }
+  .scene-3d .gl-fallback {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--text-2); text-align: center; padding: 20px;
+  }
+  /* 场景图例（3D 模式下以 DOM 叠加，沿用原 SVG 图例内容） */
+  .scene-legend {
+    position: absolute; left: 12px; bottom: 10px; z-index: 5;
+    background: rgba(5,11,26,0.82); border: 1px solid var(--line); border-radius: 2px;
+    padding: 7px 10px; font-size: 10px; color: var(--text-2); line-height: 1.7;
+    pointer-events: none; letter-spacing: .5px;
+  }
+  .scene-legend .lg-t { color: var(--text-3); font-size: 9px; letter-spacing: 2px; }
+  .scene-legend i { display: inline-block; width: 14px; height: 2px; margin-right: 5px; vertical-align: middle; }
+  .scene-legend .dotl { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  @media (max-width: 820px) { .scene-legend { display: none; } }
+
+  /* === Right column === */
+  .right {
+    grid-area: right;
+    display: grid;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .tank-card { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .tank-card:last-child { border-bottom: none; }
+  .tank-mini {
+    width: 38px; height: 50px;
+    position: relative;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .tank-mini .fill {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: linear-gradient(180deg, rgba(0,212,255,0.7), rgba(0,153,204,0.5));
+    transition: height 0.5s;
+  }
+  .tank-mini .label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--text);
+    z-index: 2;
+  }
+  .tank-info { flex: 1; }
+  .tank-info .t { font-size: 12px; color: var(--text); font-weight: 600; }
+  .tank-info .v { font-size: 18px; color: var(--accent); font-family: monospace; }
+  .tank-info .u { font-size: 11px; color: var(--text-3); }
+
+  /* heat balance */
+  .hb-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+  .hb-row .k { color: var(--text-2); }
+  .hb-row .v { color: var(--text); font-family: monospace; }
+  .hb-bar { height: 14px; background: rgba(0,0,0,0.4); border-radius: 2px; position: relative; margin: 8px 0; }
+  .hb-bar .h { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #f87171, #fbbf24); }
+  .hb-bar .c { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #38bdf8, #00d4ff); }
+  .hb-bar .center-mark { position: absolute; top: -3px; bottom: -3px; left: 50%; width: 1px; background: var(--text-3); }
+  .hb-status { text-align: center; padding: 6px; margin-top: 8px; background: rgba(74, 222, 128, 0.15); color: var(--green); border-radius: 2px; font-size: 12px; }
+
+  /* events */
+  .event-list { max-height: 100%; overflow: hidden; }
+  .event-item {
+    display: grid;
+    grid-template-columns: 50px 1fr;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 11px;
+  }
+  .event-time { color: var(--text-3); font-family: monospace; }
+  .event-msg .lvl { display: inline-block; padding: 0 4px; border-radius: 2px; margin-right: 4px; font-size: 10px; }
+  .lvl-info { background: rgba(56, 189, 248, 0.2); color: var(--blue); }
+  .lvl-warn { background: rgba(251, 146, 60, 0.2); color: var(--orange); }
+  .lvl-ok { background: rgba(74, 222, 128, 0.2); color: var(--green); }
+  .lvl-err { background: rgba(248, 113, 113, 0.2); color: var(--red); }
+
+  /* === Detail === */
+  .detail {
+    grid-area: detail;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .detail-card { padding: 12px 16px; }
+  .detail-card h4 {
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .detail-card h4 .live { color: var(--green); font-size: 10px; }
+  .point-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .pt {
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+    padding: 3px 0;
+  }
+  .pt .q {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    box-shadow: 0 0 4px currentColor;
+  }
+  .pt .id { color: var(--text-2); font-family: monospace; }
+  .pt .v { color: var(--text); font-family: monospace; font-weight: 600; }
+  .pt .u { color: var(--text-3); font-size: 10px; margin-left: 2px; }
+
+  .quality-good { color: var(--green); }
+  .quality-bad { color: var(--red); }
+  .quality-suspect { color: var(--orange); }
+  .quality-nodata { color: #888; }
+  .quality-substituted { color: var(--blue); }
+  .quality-manual { color: var(--purple); }
+
+  /* === Iso labels (in 3D scene) === */
+  .iso-label { fill: var(--text); font-size: 10px; font-family: monospace; }
+  .iso-label-bg { fill: var(--bg-0); opacity: 0.7; }
+  .iso-tag { fill: var(--accent); font-size: 11px; font-weight: 700; font-family: monospace; }
+  .iso-flow { stroke: var(--accent); stroke-width: 1.5; fill: none; opacity: 0.6; stroke-dasharray: 4 3; }
+  .iso-flow-hot { stroke: #fbbf24; }
+  .iso-flow-cold { stroke: #38bdf8; }
+  .iso-equipment-running { fill: var(--green); }
+  .iso-equipment-stopped { fill: var(--text-3); }
+
+  /* corner decorations */
+  .corner {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-color: var(--accent);
+    border-style: solid;
+    border-width: 0;
+  }
+  .corner.tl { top: 4px; left: 4px; border-top-width: 1px; border-left-width: 1px; }
+  .corner.tr { top: 4px; right: 4px; border-top-width: 1px; border-right-width: 1px; }
+  .corner.bl { bottom: 4px; left: 4px; border-bottom-width: 1px; border-left-width: 1px; }
+  .corner.br { bottom: 4px; right: 4px; border-bottom-width: 1px; border-right-width: 1px; }
+
+  /* === 移动端：保持配色与面板风格，改单列堆叠；桌面端 1920×1080 布局不变 === */
+  @media (max-width: 900px) {
+    html, body { height: auto; }
+    body { overflow: auto; }
+    .screen {
+      width: 100%; height: auto;
+      display: flex; flex-direction: column;
+      padding: 8px; gap: 8px;
+    }
+    .header { height: auto; min-height: 58px; padding: 10px 12px; flex-wrap: wrap; }
+    .header .logo, .header .meta { position: static; transform: none; text-align: left; }
+    .header h1 { font-size: 16px; letter-spacing: 2px; text-align: left; }
+    .header h1 .sub { display: block; margin: 4px 0 0; font-size: 11px; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .kpi-value { font-size: 26px; }
+    .kpi-spark canvas { width: 84px !important; }
+    .center { order: 3; height: 330px; min-height: 330px; }
+    .tree-panel { order: 4; max-height: 280px; }
+    .right { order: 5; }
+    .right > .panel { min-height: 190px; }
+    .detail { order: 6; grid-template-columns: 1fr; }
+    .kpis { order: 2; }
+    .header { order: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">DCS · SCADA</div>
+    <h1>工艺全景大屏<span class="sub">PROCESS PANORAMA · 化工储罐能源段</span></h1>
+    <div class="meta">
+      <div>当前时刻 <span id="tsNow">2026-10-15 17:00:00</span></div>
+      <div>采样周期 5 min · 测点 <b style="color:var(--accent)">34</b> · 设备 <b style="color:var(--accent)">7</b></div>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpis">
+    <div class="kpi">
+      <div class="kpi-label">总库存 AGG-001</div>
+      <div class="kpi-tag">Σ 罐容×密度</div>
+      <div class="kpi-value">141.73<span class="kpi-unit">m³</span></div>
+      <div class="kpi-spark"><canvas id="spark1"></canvas></div>
+      <div class="kpi-foot">
+        <span>质量 126.50 t</span>
+        <span class="delta-down">Δ24h -0.2 m³</span>
+        <span>3 罐</span>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">主工艺流量 AGG-002</div>
+      <div class="kpi-tag">主用 ST-101A=1</div>
+      <div class="kpi-value">62.90<span class="kpi-unit">m³/h</span></div>
+      <div class="kpi-spark"><canvas id="spark2"></canvas></div>
+      <div class="kpi-foot">
+        <span>额定 80</span>
+        <span class="delta-up">78.6% 负荷</span>
+        <span>P-101A 运行</span>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">总电耗 AGG-003</div>
+      <div class="kpi-tag">3 台泵 Σ P</div>
+      <div class="kpi-value">49.56<span class="kpi-unit">kW</span></div>
+      <div class="kpi-spark"><canvas id="spark3"></canvas></div>
+      <div class="kpi-foot">
+        <span>主用 31.82</span>
+        <span>冷却 17.74</span>
+        <span>备用 0.00</span>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">热平衡偏差 AGG-004</div>
+      <div class="kpi-tag">|Q_hot-Q_cold|/max</div>
+      <div class="kpi-value" style="color:var(--green)">-6.45<span class="kpi-unit">%</span></div>
+      <div class="kpi-spark"><canvas id="spark4"></canvas></div>
+      <div class="kpi-foot">
+        <span>热侧 970 kW</span>
+        <span>冷侧 1037 kW</span>
+        <span class="delta-up">健康</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tree -->
+  <div class="panel tree-panel">
+    <div class="panel-title">设备拓扑 · DEVICE TOPOLOGY</div>
+    <div class="panel-body" style="padding:30px 0 0;">
+      <div class="tree-list" id="treeList"></div>
+    </div>
+  </div>
+
+  <!-- Center: 3D Iso scene -->
+  <div class="panel center">
+    <div class="panel-title">三维场景 · ISOMETRIC PLANT VIEW</div>
+    <div class="scene-3d" id="scene3d"></div>
+    <svg class="scene-svg" viewBox="0 0 1240 460" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="gradTank" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1a3a6b" stop-opacity="0.3"/>
+          <stop offset="50%" stop-color="#0a1e3f" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#050b1a" stop-opacity="0.3"/>
+        </linearGradient>
+        <linearGradient id="gradLiquid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="#0099cc" stop-opacity="0.7"/>
+        </linearGradient>
+        <linearGradient id="gradPump" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2a4d8c"/>
+          <stop offset="100%" stop-color="#0a1e3f"/>
+        </linearGradient>
+        <linearGradient id="gradHot" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#fbbf24"/>
+          <stop offset="100%" stop-color="#f87171"/>
+        </linearGradient>
+        <linearGradient id="gradCold" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#38bdf8"/>
+          <stop offset="100%" stop-color="#0ea5e9"/>
+        </linearGradient>
+        <pattern id="gridPat" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1f3a6b" stroke-width="0.5" opacity="0.4"/>
+        </pattern>
+      </defs>
+
+      <!-- ground grid -->
+      <rect x="20" y="60" width="1200" height="380" fill="url(#gridPat)" opacity="0.6"/>
+
+      <!-- area labels -->
+      <text x="200" y="50" fill="#5a7ab0" font-size="11" letter-spacing="2">罐区 A · TANK FARM A</text>
+      <text x="600" y="50" fill="#5a7ab0" font-size="11" letter-spacing="2">泵房 A · PUMP HOUSE A</text>
+      <text x="900" y="50" fill="#5a7ab0" font-size="11" letter-spacing="2">换热区 · HEAT EXCHANGER</text>
+      <text x="350" y="430" fill="#5a7ab0" font-size="11" letter-spacing="2">罐区 B · TANK FARM B</text>
+      <text x="700" y="430" fill="#5a7ab0" font-size="11" letter-spacing="2">罐区 C · TANK FARM C</text>
+      <text x="1050" y="430" fill="#5a7ab0" font-size="11" letter-spacing="2">泵房 B · PUMP HOUSE B</text>
+
+      <!-- iso math: x' = (x - y) * 30, y' = (x + y) * 15 - z -->
+      <!-- center (0,0) -> (620, 280) -->
+
+      <!-- ===== Hot process line (yellow/red) ===== -->
+      <!-- T-101 (160, 80) -> P-101A -> E-101 -> T-102 (380, 240) -> T-103 (480, 300) -->
+      <!-- Coords: tank (x=0..2,y=0..2), pump (x=3,y=1), E (x=5,y=2) -->
+
+      <!-- Pipes hot (under equipment) -->
+      <path d="M 290 230 L 470 230 L 470 230 L 620 290 L 770 350" class="iso-flow iso-flow-hot" stroke-width="3" opacity="0.5"/>
+      <path d="M 290 230 L 470 230 L 470 230 L 620 290 L 770 350" class="iso-flow iso-flow-hot" stroke-width="3" opacity="0.5" stroke-dasharray="2 4">
+        <animate attributeName="stroke-dashoffset" values="0;-60" dur="2s" repeatCount="indefinite"/>
+      </path>
+
+      <!-- Cold water loop (blue) -->
+      <path d="M 1060 230 L 800 290 L 800 290" class="iso-flow iso-flow-cold" stroke-width="3" opacity="0.5"/>
+      <path d="M 1060 230 L 800 290 L 800 290" class="iso-flow iso-flow-cold" stroke-width="3" opacity="0.5" stroke-dasharray="2 4">
+        <animate attributeName="stroke-dashoffset" values="0;-60" dur="2s" repeatCount="indefinite"/>
+      </path>
+
+      <!-- ===== T-101 原液储罐 (大型立式) ===== -->
+      <g transform="translate(120,160)">
+        <!-- shadow -->
+        <ellipse cx="80" cy="135" rx="80" ry="14" fill="#000" opacity="0.4"/>
+        <!-- cylinder body -->
+        <path d="M 0 20 L 0 130 A 80 10 0 0 0 160 130 L 160 20 Z" fill="url(#gradTank)" stroke="#2a4d8c" stroke-width="1"/>
+        <!-- liquid level (3.238m of 5m) = 64.7% -->
+        <path d="M 0 46 L 0 130 A 80 10 0 0 0 160 130 L 160 46 Z" fill="url(#gradLiquid)" opacity="0.7"/>
+        <!-- top ellipse -->
+        <ellipse cx="80" cy="20" rx="80" ry="10" fill="#0a1e3f" stroke="#2a4d8c" stroke-width="1"/>
+        <ellipse cx="80" cy="20" rx="72" ry="9" fill="none" stroke="#00d4ff" stroke-width="0.5" opacity="0.6"/>
+        <!-- label panel -->
+        <rect x="20" y="60" width="120" height="44" fill="#050b1a" stroke="#00d4ff" opacity="0.95" rx="2"/>
+        <text x="80" y="76" text-anchor="middle" class="iso-tag">T-101</text>
+        <text x="80" y="90" text-anchor="middle" class="iso-label" font-size="9">原液储罐</text>
+        <text x="80" y="100" text-anchor="middle" class="iso-label" font-size="9" fill="#00d4ff">3.24m / 40.7m³</text>
+        <!-- inlet pipe top -->
+        <rect x="76" y="2" width="8" height="14" fill="#2a4d8c" stroke="#5a7ab0"/>
+        <!-- outlet pipe bottom -->
+        <rect x="155" y="115" width="20" height="6" fill="#2a4d8c"/>
+        <!-- sensor tag -->
+        <circle cx="40" cy="35" r="3" fill="#4ade80"/>
+        <text x="48" y="38" class="iso-label" font-size="8">LI-101</text>
+        <circle cx="120" cy="35" r="3" fill="#4ade80"/>
+        <text x="100" y="55" class="iso-label" font-size="8">TI-101</text>
+      </g>
+
+      <!-- ===== P-101A 主用泵 (running) ===== -->
+      <g transform="translate(370,200)">
+        <ellipse cx="35" cy="80" rx="35" ry="6" fill="#000" opacity="0.4"/>
+        <!-- motor box -->
+        <rect x="0" y="20" width="70" height="50" fill="url(#gradPump)" stroke="#00d4ff" stroke-width="1.2"/>
+        <!-- pump body cylinder -->
+        <ellipse cx="35" cy="20" rx="20" ry="6" fill="#1a3a6b" stroke="#00d4ff" stroke-width="1"/>
+        <rect x="15" y="20" width="40" height="20" fill="#14274a" stroke="#00d4ff" stroke-width="0.8"/>
+        <ellipse cx="35" cy="40" rx="20" ry="5" fill="#0a1e3f" stroke="#00d4ff" stroke-width="0.8"/>
+        <!-- fan (rotating) -->
+        <g transform="translate(35,45)">
+          <circle r="8" fill="none" stroke="#00d4ff" stroke-width="0.5"/>
+          <g>
+            <path d="M 0 0 L 0 -7 L 2 -3 Z" fill="#00d4ff"/>
+            <path d="M 0 0 L 7 0 L 3 2 Z" fill="#00d4ff"/>
+            <path d="M 0 0 L 0 7 L -2 3 Z" fill="#00d4ff"/>
+            <path d="M 0 0 L -7 0 L -3 -2 Z" fill="#00d4ff"/>
+            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s" repeatCount="indefinite"/>
+          </g>
+        </g>
+        <!-- pipes -->
+        <rect x="-20" y="40" width="20" height="6" fill="#2a4d8c"/>
+        <rect x="70" y="40" width="30" height="6" fill="#2a4d8c"/>
+        <!-- label -->
+        <rect x="0" y="-22" width="70" height="20" fill="#050b1a" stroke="#4ade80" rx="2"/>
+        <text x="35" y="-9" text-anchor="middle" class="iso-tag" fill="#4ade80">P-101A</text>
+        <!-- status -->
+        <text x="35" y="92" text-anchor="middle" class="iso-label" font-size="9" fill="#4ade80">主用 · RUN</text>
+        <text x="35" y="103" text-anchor="middle" class="iso-label" font-size="8" fill="#5a7ab0">62.9 m³/h</text>
+      </g>
+
+      <!-- ===== P-101B 备用泵 (stopped) ===== -->
+      <g transform="translate(450,200)" opacity="0.6">
+        <ellipse cx="25" cy="80" rx="25" ry="5" fill="#000" opacity="0.4"/>
+        <rect x="0" y="20" width="50" height="50" fill="#0f1d3a" stroke="#5a7ab0" stroke-width="1"/>
+        <ellipse cx="25" cy="20" rx="15" ry="5" fill="#0f1d3a" stroke="#5a7ab0" stroke-width="0.8"/>
+        <rect x="10" y="20" width="30" height="20" fill="#0a1e3f" stroke="#5a7ab0" stroke-width="0.6"/>
+        <ellipse cx="25" cy="40" rx="15" ry="4" fill="#050b1a" stroke="#5a7ab0" stroke-width="0.6"/>
+        <rect x="-15" y="40" width="15" height="5" fill="#1f3a6b"/>
+        <rect x="50" y="40" width="20" height="5" fill="#1f3a6b"/>
+        <rect x="-5" y="-22" width="60" height="20" fill="#050b1a" stroke="#5a7ab0" rx="2"/>
+        <text x="25" y="-9" text-anchor="middle" class="iso-tag" fill="#5a7ab0">P-101B</text>
+        <text x="25" y="92" text-anchor="middle" class="iso-label" font-size="9" fill="#5a7ab0">备用 · STOP</text>
+        <text x="25" y="103" text-anchor="middle" class="iso-label" font-size="8" fill="#5a7ab0">0.0 m³/h</text>
+      </g>
+
+      <!-- ===== E-101 板式换热器 ===== -->
+      <g transform="translate(620,260)">
+        <ellipse cx="60" cy="80" rx="60" ry="8" fill="#000" opacity="0.4"/>
+        <!-- heat exchanger stacked plates -->
+        <rect x="0" y="10" width="120" height="65" fill="#14274a" stroke="#2a4d8c"/>
+        <!-- plate fins -->
+        <g stroke="#5a7ab0" stroke-width="0.5">
+          <line x1="0" y1="20" x2="120" y2="20"/>
+          <line x1="0" y1="30" x2="120" y2="30"/>
+          <line x1="0" y1="40" x2="120" y2="40"/>
+          <line x1="0" y1="50" x2="120" y2="50"/>
+          <line x1="0" y1="60" x2="120" y2="60"/>
+        </g>
+        <rect x="0" y="10" width="120" height="65" fill="none" stroke="#00d4ff" stroke-width="1.2"/>
+        <!-- hot in -->
+        <rect x="-20" y="20" width="20" height="6" fill="url(#gradHot)"/>
+        <!-- hot out -->
+        <rect x="120" y="60" width="20" height="6" fill="url(#gradHot)"/>
+        <!-- cold in -->
+        <rect x="120" y="20" width="20" height="6" fill="url(#gradCold)"/>
+        <!-- cold out -->
+        <rect x="-20" y="60" width="20" height="6" fill="url(#gradCold)"/>
+        <!-- label -->
+        <rect x="20" y="32" width="80" height="22" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+        <text x="60" y="46" text-anchor="middle" class="iso-tag">E-101</text>
+        <text x="60" y="92" text-anchor="middle" class="iso-label" font-size="9">板式换热器</text>
+        <text x="60" y="103" text-anchor="middle" class="iso-label" font-size="8" fill="#00d4ff">Q = 970 / 1037 kW</text>
+      </g>
+
+      <!-- ===== T-102 缓冲储罐 (小型) ===== -->
+      <g transform="translate(810,290)">
+        <ellipse cx="50" cy="100" rx="50" ry="8" fill="#000" opacity="0.4"/>
+        <path d="M 0 15 L 0 95 A 50 6 0 0 0 100 95 L 100 15 Z" fill="url(#gradTank)" stroke="#2a4d8c" stroke-width="1"/>
+        <!-- liquid 1.504/3.0 = 50.1% -->
+        <path d="M 0 55 L 0 95 A 50 6 0 0 0 100 95 L 100 55 Z" fill="url(#gradLiquid)" opacity="0.7"/>
+        <ellipse cx="50" cy="15" rx="50" ry="6" fill="#0a1e3f" stroke="#2a4d8c" stroke-width="1"/>
+        <ellipse cx="50" cy="15" rx="44" ry="5" fill="none" stroke="#00d4ff" stroke-width="0.5" opacity="0.6"/>
+        <rect x="10" y="40" width="80" height="36" fill="#050b1a" stroke="#00d4ff" opacity="0.95" rx="2"/>
+        <text x="50" y="54" text-anchor="middle" class="iso-tag">T-102</text>
+        <text x="50" y="66" text-anchor="middle" class="iso-label" font-size="9">缓冲储罐</text>
+        <text x="50" y="74" text-anchor="middle" class="iso-label" font-size="9" fill="#00d4ff">1.50m / 7.4m³</text>
+      </g>
+
+      <!-- ===== T-103 成品储罐 (最大) ===== -->
+      <g transform="translate(950,310)">
+        <ellipse cx="70" cy="100" rx="70" ry="10" fill="#000" opacity="0.4"/>
+        <path d="M 0 15 L 0 95 A 70 9 0 0 0 140 95 L 140 15 Z" fill="url(#gradTank)" stroke="#2a4d8c" stroke-width="1"/>
+        <!-- liquid 4.77/8.0 = 59.6% -->
+        <path d="M 0 40 L 0 95 A 70 9 0 0 0 140 95 L 140 40 Z" fill="url(#gradLiquid)" opacity="0.7"/>
+        <ellipse cx="70" cy="15" rx="70" ry="9" fill="#0a1e3f" stroke="#2a4d8c" stroke-width="1"/>
+        <ellipse cx="70" cy="15" rx="62" ry="8" fill="none" stroke="#00d4ff" stroke-width="0.5" opacity="0.6"/>
+        <rect x="15" y="50" width="110" height="40" fill="#050b1a" stroke="#00d4ff" opacity="0.95" rx="2"/>
+        <text x="70" y="66" text-anchor="middle" class="iso-tag">T-103</text>
+        <text x="70" y="78" text-anchor="middle" class="iso-label" font-size="9">成品储罐</text>
+        <text x="70" y="88" text-anchor="middle" class="iso-label" font-size="9" fill="#00d4ff">4.77m / 93.7m³</text>
+      </g>
+
+      <!-- ===== P-201 冷却水泵 ===== -->
+      <g transform="translate(1010,150)">
+        <ellipse cx="30" cy="60" rx="30" ry="5" fill="#000" opacity="0.4"/>
+        <rect x="0" y="10" width="60" height="40" fill="url(#gradPump)" stroke="#38bdf8" stroke-width="1.2"/>
+        <ellipse cx="30" cy="10" rx="16" ry="5" fill="#1a3a6b" stroke="#38bdf8" stroke-width="1"/>
+        <rect x="14" y="10" width="32" height="18" fill="#14274a" stroke="#38bdf8" stroke-width="0.8"/>
+        <ellipse cx="30" cy="28" rx="16" ry="4" fill="#0a1e3f" stroke="#38bdf8" stroke-width="0.8"/>
+        <g transform="translate(30,32)">
+          <circle r="6" fill="none" stroke="#38bdf8" stroke-width="0.5"/>
+          <g>
+            <path d="M 0 0 L 0 -5 L 1 -2 Z" fill="#38bdf8"/>
+            <path d="M 0 0 L 5 0 L 2 1 Z" fill="#38bdf8"/>
+            <path d="M 0 0 L 0 5 L -1 2 Z" fill="#38bdf8"/>
+            <path d="M 0 0 L -5 0 L -2 -1 Z" fill="#38bdf8"/>
+            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s" repeatCount="indefinite"/>
+          </g>
+        </g>
+        <rect x="-15" y="28" width="15" height="5" fill="#2a4d8c"/>
+        <rect x="60" y="28" width="20" height="5" fill="#2a4d8c"/>
+        <rect x="-5" y="-22" width="70" height="20" fill="#050b1a" stroke="#38bdf8" rx="2"/>
+        <text x="30" y="-9" text-anchor="middle" class="iso-tag" fill="#38bdf8">P-201</text>
+        <text x="30" y="72" text-anchor="middle" class="iso-label" font-size="9" fill="#38bdf8">冷却 · RUN</text>
+        <text x="30" y="82" text-anchor="middle" class="iso-label" font-size="8" fill="#5a7ab0">88.0 m³/h</text>
+      </g>
+
+      <!-- legend -->
+      <g transform="translate(40,400)">
+        <rect x="0" y="0" width="350" height="48" fill="#050b1a" stroke="#1f3a6b" opacity="0.9" rx="2"/>
+        <text x="10" y="14" class="iso-label" fill="#5a7ab0" font-size="9">图例 · LEGEND</text>
+        <line x1="10" y1="26" x2="30" y2="26" stroke="#fbbf24" stroke-width="2"/>
+        <text x="36" y="29" class="iso-label" font-size="9">热侧工艺 (Hot)</text>
+        <line x1="130" y1="26" x2="150" y2="26" stroke="#38bdf8" stroke-width="2"/>
+        <text x="156" y="29" class="iso-label" font-size="9">冷侧工艺 (Cold)</text>
+        <circle cx="240" cy="26" r="4" fill="#4ade80"/>
+        <text x="250" y="29" class="iso-label" font-size="9">运行 (Run)</text>
+        <circle cx="300" cy="26" r="4" fill="#5a7ab0"/>
+        <text x="310" y="29" class="iso-label" font-size="9">停止 (Stop)</text>
+        <text x="10" y="42" class="iso-label" fill="#5a7ab0" font-size="8">虚线动画 = 介质流向；标签颜色 = 数据质量 (绿=正常)</text>
+      </g>
+
+    </svg>
+  </div>
+
+  <!-- Right column -->
+  <div class="right">
+    <div class="panel">
+      <div class="panel-title">罐区实时 · TANK LEVELS</div>
+      <div class="panel-body" id="tankList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">热平衡 · HEAT BALANCE</div>
+      <div class="panel-body" id="heatBalance"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">事件流 · EVENT STREAM</div>
+      <div class="panel-body" id="eventStream"></div>
+    </div>
+  </div>
+
+  <!-- Detail row -->
+  <div class="detail">
+    <div class="panel detail-card">
+      <h4>T-101 原液储罐 <span class="live">● LIVE</span></h4>
+      <div class="point-grid" id="t101-points"></div>
+    </div>
+    <div class="panel detail-card">
+      <h4>P-101A 主用泵 <span class="live">● LIVE</span></h4>
+      <div class="point-grid" id="p101a-points"></div>
+    </div>
+    <div class="panel detail-card">
+      <h4>E-101 板式换热器 <span class="live">● LIVE</span></h4>
+      <div class="point-grid" id="e101-points"></div>
+    </div>
+    <div class="panel detail-card">
+      <h4>T-103 成品储罐 <span class="live">● LIVE</span></h4>
+      <div class="point-grid" id="t103-points"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = {
+  accent: '#00d4ff', green: '#4ade80', blue: '#38bdf8',
+  orange: '#fb923c', red: '#f87171', text: '#d6e4ff', text2: '#8aa5d3',
+  bg: '#0a1428', grid: '#1f3a6b'
+};
+const QCOLOR = {Good:'#4ade80', Bad:'#f87171', Suspect:'#fb923c', NoData:'#888888', Substituted:'#38bdf8', Manual:'#c084fc'};
+
+// === Build device tree ===
+// 数据源缺失时兜底，避免整段脚本因 undefined 中断
+const devices = Array.isArray(window.DEVICES) ? window.DEVICES : [];
+const CP = window.CURRENT_POINTS || {};
+const SR = window.SERIES || {};
+const AG = window.AGGREGATES || {};
+
+// 设备 -> 测点映射（以 data.js 为准，缺失时回退本地常量）
+const DEV_POINTS = window.DEV_POINTS || {
+  'T-101': ['LI-101','TI-101','PI-101'],
+  'P-101A': ['FT-101A','PT-101A','IT-101A','SZ-101A','ST-101A'],
+  'P-101B': ['FT-101B','PT-101B','IT-101B','ST-101B'],
+  'E-101':  ['TI-102','TI-103','TI-104','TI-105','PI-102','PI-103','PI-104','PI-105'],
+  'T-102': ['LI-102','TI-106','PI-106'],
+  'T-103': ['LI-103','TI-107','PI-107'],
+  'P-201': ['FQ-201','TI-201','PI-201','FT-201','IT-201','ST-201']
+};
+
+const STATUS = {
+  'T-101': {st:'good', label:'原液储罐', area:'罐区A', info:'液位 3.24m · 40.7 m³'},
+  'P-101A': {st:'good', label:'主用泵', area:'泵房A', info:'流量 62.9 m³/h · 31.82 kW'},
+  'P-101B': {st:'stop', label:'备用泵', area:'泵房A', info:'流量 0 · 待机'},
+  'E-101': {st:'good', label:'板式换热器', area:'换热区', info:'970 / 1037 kW · Δ-6.45%'},
+  'T-102': {st:'good', label:'缓冲储罐', area:'罐区B', info:'液位 1.50m · 7.4 m³'},
+  'T-103': {st:'good', label:'成品储罐', area:'罐区C', info:'液位 4.77m · 93.7 m³'},
+  'P-201': {st:'good', label:'冷却水泵', area:'泵房B', info:'流量 88 m³/h · 17.74 kW'},
+};
+
+const tl = document.getElementById('treeList');
+devices.forEach(d => {
+  const s = STATUS[d.tag];
+  const item = document.createElement('div');
+  item.className = 'tree-item';
+  item.innerHTML = `
+    <div class="tree-dot ${s.st==='stop'?'stop':s.st==='warn'?'warn':''}" style="color:${s.st==='stop'?'#5a7ab0':s.st==='warn'?'#fb923c':'#4ade80'}"></div>
+    <div class="tree-info">
+      <div class="tree-tag">${d.tag}</div>
+      <div class="tree-name">${s.label} · ${s.area}</div>
+    </div>
+    <div class="tree-meta">${d.type}</div>
+  `;
+  item.title = s.info;
+  item.dataset.tag = d.tag;
+  item.style.cursor = 'pointer';
+  tl.appendChild(item);
+});
+
+// === KPI sparklines ===
+function spark(id, data, color){
+  const el = document.getElementById(id);
+  if (!el || !window.Chart || !Array.isArray(data)) return null;
+  return new Chart(el.getContext('2d'), {
+    type: 'line',
+    data: {labels: window.TS_24H || [], datasets: [{data, borderColor: color, borderWidth: 1.5, backgroundColor: color+'20', fill: true, tension: 0.3, pointRadius: 0}]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {legend: {display: false}, tooltip: {enabled: false}},
+      scales: {x: {display: false}, y: {display: false}}
+    }
+  });
+}
+spark('spark1', SR.vol_24h, '#00d4ff');
+spark('spark2', SR.flow_24h, '#fbbf24');
+spark('spark3', SR.power_24h, '#4ade80');
+spark('spark4', SR.imb_24h, '#c084fc');
+
+// === Tank list ===
+const PT = id => (CP[id] && typeof CP[id].value === 'number') ? CP[id].value : 0;
+const tanks = [
+  {tag:'T-101', name:'原液储罐', level: PT('LI-101'), max: 5.0, vol: 40.69, t: PT('TI-101')},
+  {tag:'T-102', name:'缓冲储罐', level: PT('LI-102'), max: 3.0, vol: 7.38, t: PT('TI-106')},
+  {tag:'T-103', name:'成品储罐', level: PT('LI-103'), max: 8.0, vol: 93.66, t: PT('TI-107')},
+];
+const tankList = document.getElementById('tankList');
+tanks.forEach(t => {
+  const pct = t.max ? (t.level / t.max * 100).toFixed(1) : '0.0';
+  const div = document.createElement('div');
+  div.className = 'tank-card';
+  div.innerHTML = `
+    <div class="tank-mini">
+      <div class="fill" style="height:${pct}%"></div>
+      <div class="label">${pct}%</div>
+    </div>
+    <div class="tank-info">
+      <div class="t">${t.tag} ${t.name}</div>
+      <div><span class="v">${t.level.toFixed(2)}</span><span class="u"> m / ${t.vol.toFixed(1)} m³</span></div>
+      <div class="u">温度 ${t.t.toFixed(1)}°C</div>
+    </div>
+  `;
+  tankList.appendChild(div);
+});
+
+// === Heat balance ===
+const hb = document.getElementById('heatBalance');
+const HB = AG['AGG-004 热交换量'] || {};
+const qhot = HB.hot_side_kw || 0;
+const qcold = HB.cold_side_kw || 0;
+const imb = HB.imbalance_pct || 0;
+const maxQ = Math.max(qhot, qcold) || 1;
+const hPct = (qhot / maxQ * 50).toFixed(1);
+const cPct = (qcold / maxQ * 50).toFixed(1);
+hb.innerHTML = `
+  <div class="hb-row"><span class="k">热侧放热 Q_hot</span><span class="v">${qhot.toFixed(1)} kW</span></div>
+  <div class="hb-row"><span class="k">冷侧吸热 Q_cold</span><span class="v">${qcold.toFixed(1)} kW</span></div>
+  <div class="hb-bar">
+    <div class="h" style="right:50%;width:${hPct}%"></div>
+    <div class="c" style="left:50%;width:${cPct}%"></div>
+    <div class="center-mark"></div>
+  </div>
+  <div class="hb-row"><span class="k">热侧温降 ΔT</span><span class="v">${(PT('TI-102') - PT('TI-103')).toFixed(1)} °C</span></div>
+  <div class="hb-row"><span class="k">冷侧温升 ΔT</span><span class="v">${(PT('TI-105') - PT('TI-104')).toFixed(1)} °C</span></div>
+  <div class="hb-row"><span class="k">偏差 (Q_cold-Q_hot)/max</span><span class="v" style="color:var(--green)">${imb.toFixed(2)} %</span></div>
+  <div class="hb-status">健康 ｜ |偏差| &lt; 10% 工业阈值</div>
+`;
+
+// === Event stream (derived from current state) ===
+const events = [
+  {time:'17:00:00', lvl:'ok',  msg:'自检通过：5/5 规则命中，无异常'},
+  {time:'16:55:12', lvl:'info',msg:'P-101A 变频频率稳定在 38.5 Hz'},
+  {time:'16:48:30', lvl:'info',msg:'T-101 液位 3.24m · 处于工作区间'},
+  {time:'16:30:00', lvl:'info',msg:'E-101 板式换热器 Δ-6.45% 偏差收敛'},
+  {time:'15:12:45', lvl:'warn',msg:'TI-104 短时突跳 ±1.2°C · 已标记 Suspect'},
+  {time:'14:00:00', lvl:'info',msg:'日负荷曲线进入峰段 · 主用流量 +5%'},
+  {time:'12:00:00', lvl:'info',msg:'7d 日级快照已落库 · 总电耗 51.48 kW'},
+  {time:'09:30:21', lvl:'info',msg:'P-201 冷却水泵投入运行 · 流量 88 m³/h'},
+  {time:'06:00:00', lvl:'info',msg:'日负荷曲线进入谷段 · 流量 -5%'},
+  {time:'00:00:00', lvl:'ok',  msg:'新一天切换完成 · 32 个测点采集正常'},
+];
+const ev = document.getElementById('eventStream');
+events.forEach(e => {
+  const div = document.createElement('div');
+  div.className = 'event-item';
+  div.innerHTML = `
+    <div class="event-time">${e.time}</div>
+    <div class="event-msg"><span class="lvl lvl-${e.lvl}">${e.lvl.toUpperCase()}</span>${e.msg}</div>
+  `;
+  ev.appendChild(div);
+});
+
+// === Detail point grids ===
+function fillPoints(containerId, ids) {
+  const c = document.getElementById(containerId);
+  ids.forEach(pid => {
+    const p = CP[pid];
+    if (!p) return;
+    const qColor = QCOLOR[p.quality_code] || '#888';
+    const cls = 'quality-' + p.quality_code.toLowerCase();
+    const v = (p.value === null || p.value === undefined) ? '—' : (p.value + '').includes('.') ? p.value.toFixed(1) : p.value;
+    const div = document.createElement('div');
+    div.className = 'pt';
+    div.innerHTML = `
+      <span class="q" style="background:${qColor};color:${qColor}"></span>
+      <span class="id">${pid}</span>
+      <span class="v ${cls}">${v}<span class="u"> ${p.unit}</span></span>
+    `;
+    c.appendChild(div);
+  });
+}
+fillPoints('t101-points', DEV_POINTS['T-101']);
+fillPoints('p101a-points', DEV_POINTS['P-101A']);
+fillPoints('e101-points',  DEV_POINTS['E-101']);
+fillPoints('t103-points',  DEV_POINTS['T-103']);
+
+const tsEl = document.getElementById('tsNow');
+if (tsEl) tsEl.textContent = (window.CURRENT_TS || new Date().toISOString()).replace('T',' ').slice(0,19);
+</script>
+
+<!-- ===== 3D 运行时（本地优先，CDN 回退） ===== -->
+<script src="./vendor/three.min.js"></script>
+<script>window.THREE||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"><\/scr'+'ipt>');</script>
+<script src="./three-plant.js"></script>
+
+<!-- ===== 三维场景：以 Three.js 3D 资产替换原 SVG 等距设备图 ===== -->
+<script>
+(function () {
+  var host = document.getElementById('scene3d');
+  var svg = document.querySelector('.scene-svg');
+
+  // 降级：THREE 缺失或 WebGL 不可用时，保留原 SVG 等距视图
+  if (!window.Plant3D || !window.Plant3D.available || !host) {
+    if (host) host.parentNode.removeChild(host);
+    return;
+  }
+  var P3 = window.Plant3D, T = P3.THREE;
+  var P = window.CURRENT_POINTS || {};
+  function v(id, dft) { var p = P[id]; return (p && typeof p.value === 'number') ? p.value : dft; }
+
+  /* ---------- 1. 创建观察器（含视角范围限制） ---------- */
+  var viewer;
+  try {
+    viewer = P3.createViewer(host, {
+      fov: 42, alpha: true, fogNear: 30, fogFar: 110,   // 透明画布，沿用面板渐变底
+      rig: {
+        target: [0, 3.5, 0], theta: -0.30, phi: 1.05, dist: 26,
+        thetaRange: [-Math.PI * 0.80, Math.PI * 0.32],  // 水平 ±，禁止绕到背面
+        phiRange: [0.30, 1.40],                          // 垂直：不穿地、不过顶
+        distRange: [14, 52],                             // 缩放行程
+        panRange: { x: [-16, 16], y: [0.5, 12], z: [-12, 12] },
+        autoRotate: true, autoRotateSpeed: 0.085         // 空闲 6s 后缓慢巡航
+      }
+    });
+  } catch (e) {
+    console.warn('[3D] WebGL 初始化失败，回退 SVG 视图', e);
+    host.parentNode.removeChild(host);
+    return;
+  }
+  svg.parentNode.removeChild(svg);          // 3D 就绪后移除原 SVG 设备图
+  P3.addLights(viewer.scene, { rim: 70 });
+
+  /* ---------- 2. 场地 ---------- */
+  var ground = new T.Mesh(
+    new T.PlaneGeometry(56, 34),
+    new T.MeshStandardMaterial({ color: 0x0a1628, roughness: 0.95, metalness: 0.05 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  viewer.scene.add(ground);
+  viewer.scene.add(P3.buildGround(56, 28));
+
+  /* ---------- 3. 设备资产（几何与数据同源 data.js） ---------- */
+  var DEV = {};
+  function reg(tag, group, meta) {
+    group.userData.pickable = true;
+    group.userData.tag = tag;
+    DEV[tag] = Object.assign({ group: group }, meta || {});
+    viewer.scene.add(group);
+  }
+
+  var t101 = P3.buildTank({
+    radius: 2.0, height: 5.0, level: v('LI-101', 3.238) / 5.0,
+    tag: 'T-101', name: '原液储罐', info: v('LI-101', 3.24).toFixed(2) + 'm / 40.7 m³'
+  });
+  t101.position.set(-13, 0, -5);
+  reg('T-101', t101, { name: '原液储罐', area: '罐区A', state: '运行', extra: '液位 ' + v('LI-101', 3.24).toFixed(2) + ' m · 温度 ' + v('TI-101', 25).toFixed(1) + ' °C' });
+
+  var p101a = P3.buildPump({
+    running: true, tag: 'P-101A', name: '主用输送泵', info: v('FT-101A', 62.9).toFixed(1) + ' m³/h · 31.8 kW'
+  });
+  p101a.position.set(-4.5, 0, -4); p101a.rotation.y = Math.PI;
+  reg('P-101A', p101a, { name: '主用输送泵', area: '泵房A', state: '运行', extra: '流量 ' + v('FT-101A', 62.9).toFixed(1) + ' m³/h · 频率 ' + v('SZ-101A', 38.5).toFixed(1) + ' Hz' });
+
+  var p101b = P3.buildPump({
+    running: false, tag: 'P-101B', name: '备用输送泵', info: '0.0 m³/h · 待机'
+  });
+  p101b.position.set(-4.5, 0, -0.6); p101b.rotation.y = Math.PI;
+  reg('P-101B', p101b, { name: '备用输送泵', area: '泵房A', state: '停止', extra: '流量 0.0 m³/h · 联锁待机' });
+
+  var e101 = P3.buildExchanger({
+    tag: 'E-101', name: '板式换热器',
+    info: 'Q ' + (window.AGGREGATES && window.AGGREGATES['AGG-004 热交换量'] ? window.AGGREGATES['AGG-004 热交换量'].hot_side_kw.toFixed(0) : 970) + ' / 1037 kW'
+  });
+  e101.position.set(1.5, 0, -6);
+  reg('E-101', e101, { name: '板式换热器', area: '换热区', state: '运行', extra: '热侧 ' + v('TI-102', 74.4).toFixed(1) + '→' + v('TI-103', 45.7).toFixed(1) + ' °C' });
+
+  var t102 = P3.buildTank({
+    radius: 1.25, height: 3.0, level: v('LI-102', 1.504) / 3.0,
+    tag: 'T-102', name: '缓冲储罐', info: v('LI-102', 1.5).toFixed(2) + 'm / 7.4 m³'
+  });
+  t102.position.set(7.5, 0, -4.5);
+  reg('T-102', t102, { name: '缓冲储罐', area: '罐区B', state: '运行', extra: '液位 ' + v('LI-102', 1.5).toFixed(2) + ' m · 温度 ' + v('TI-106', 45).toFixed(1) + ' °C' });
+
+  var t103 = P3.buildTank({
+    radius: 2.5, height: 8.0, level: v('LI-103', 4.77) / 8.0,
+    tag: 'T-103', name: '成品储罐', info: v('LI-103', 4.77).toFixed(2) + 'm / 93.7 m³'
+  });
+  t103.position.set(14, 0, -1);
+  reg('T-103', t103, { name: '成品储罐', area: '罐区C', state: '运行', extra: '液位 ' + v('LI-103', 4.77).toFixed(2) + ' m · 温度 ' + v('TI-107', 35.5).toFixed(1) + ' °C' });
+
+  var p201 = P3.buildPump({
+    running: true, tag: 'P-201', name: '冷却水循环泵', accent: '#38bdf8', info: '88.0 m³/h · 17.7 kW'
+  });
+  p201.position.set(9.5, 0, 6); p201.rotation.y = Math.PI;
+  reg('P-201', p201, { name: '冷却水循环泵', area: '泵房B', state: '运行', extra: '流量 88.0 m³/h · 电流 ' + v('IT-201', 32.9).toFixed(1) + ' A' });
+
+  var pool = P3.buildPool({ tag: 'CW-01', name: '冷却水池', width: 5.5, depth: 4.2, height: 0.9 });
+  pool.position.set(14.5, 0, 8);
+  reg('CW-01', pool, { name: '冷却水池', area: '泵房B', state: '运行', extra: '供水温度 ' + v('TI-104', 27.8).toFixed(1) + ' °C' });
+
+  /* ---------- 4. 区域标识 ---------- */
+  [['罐区 A', 'TANK FARM A', -13, 1.2], ['泵房 A', 'PUMP HOUSE A', -4.5, 2.6],
+   ['换热区', 'HEAT EXCHANGER', 1.5, -1.0], ['罐区 B', 'TANK FARM B', 7.5, -0.6],
+   ['罐区 C', 'TANK FARM C', 14, 3.2], ['泵房 B', 'PUMP HOUSE B', 9.5, 9.6]
+  ].forEach(function (a) {
+    var sp = P3.makeLabel({ title: a[0], lines: [a[1]], accent: '#5a7ab0', worldWidth: 3.4, width: 200 });
+    sp.position.set(a[2], 0.75, a[3]);
+    viewer.scene.add(sp);
+  });
+
+  /* ---------- 5. 工艺管线 + 流向粒子 ---------- */
+  var HOT = 0xfbbf24, COLD = 0x38bdf8, IDLE = 0x2a4d8c;
+  var pipes = [
+    // 热侧：T-101 → P-101A → E-101 → T-102 → T-103
+    { pts: [[-10.12, .55, -5], [-9.2, .45, -5], [-8, .5, -4.6], [-7, .85, -4.2], [-6.35, 1.15, -4]], c: HOT, flow: true },
+    { pts: [[-5.42, 2.02, -4], [-4, 2.25, -4.6], [-2, 2.4, -5.4], [-0.15, 2.55, -6]], c: HOT, flow: true },
+    { pts: [[3.15, 1.25, -6], [4.5, 1.8, -5.6], [6, 2.8, -5], [7.2, 3.6, -4.6], [7.5, 3.9, -4.5]], c: HOT, flow: true },
+    { pts: [[9.63, .55, -4.5], [10.5, .55, -3], [11.2, .7, -1.6], [11.6, .9, -1]], c: HOT, flow: true },
+    // 备用支路（停运，粒子暗显）
+    { pts: [[-8, .5, -4.6], [-8, .5, -2.6], [-7, .8, -1], [-6.35, 1.15, -0.6]], c: IDLE, flow: false },
+    { pts: [[-5.42, 2.02, -0.6], [-5, 2.1, -2], [-4.2, 2.2, -3.5], [-4, 2.25, -4.6]], c: IDLE, flow: false },
+    // 冷侧：水池 → P-201 → E-101 → 回水
+    { pts: [[12, .8, 8], [10.5, .75, 7.4], [8.5, .95, 6.5], [7.65, 1.15, 6]], c: COLD, flow: true },
+    { pts: [[8.58, 2.02, 6], [7, 2.3, 2], [5, 2.5, -2], [3.15, 2.55, -6]], c: COLD, flow: true },
+    { pts: [[-0.15, 1.25, -6], [3, 1.1, -2], [8, 1.0, 2], [13, .95, 6], [16.5, .85, 8]], c: COLD, flow: true }
+  ];
+  var flows = [];
+  pipes.forEach(function (p) {
+    var mesh = P3.buildPipe(p.pts, { radius: 0.105, color: p.c, emissive: p.flow ? 0.42 : 0.12, opacity: 0.95 });
+    viewer.scene.add(mesh);
+    var f = P3.buildFlow(mesh.userData.curve, {
+      count: p.flow ? 24 : 12, color: p.c, size: p.flow ? 0.36 : 0.24,
+      speed: p.flow ? 0.13 : 0.05, opacity: p.flow ? 0.95 : 0.18   // 停运支路暗显
+    });
+    viewer.scene.add(f.points);
+    flows.push(f);
+  });
+
+  /* ---------- 6. 每帧动画（单一 RAF，dt 驱动，帧率无关） ---------- */
+  viewer.onFrame(function (dt, t) {
+    // 泵叶轮
+    for (var tag in DEV) {
+      var u = DEV[tag].group.userData;
+      if (u.spinner && u.spinSpeed) u.spinner.rotation.x += u.spinSpeed * dt;
+      if (u.type === 'pump' && u.lamp) u.lamp.material.opacity = 0.65 + 0.35 * Math.sin(t * 3 + tag.length);
+    }
+    // 换热器热晕呼吸
+    e101.userData.halo.material.opacity = 0.08 + 0.05 * Math.sin(t * 1.3);
+    // 水池波动
+    pool.userData.wave(t);
+    // 液面微澜
+    [t101, t102, t103].forEach(function (tk, i) {
+      tk.userData.surface.position.y += Math.sin(t * 1.6 + i) * 0.0016;
+    });
+    // 流向粒子
+    for (var i = 0; i < flows.length; i++) flows[i].update(dt, t);
+  });
+
+  /* ---------- 7. 交互：拾取 / 提示 / 视角预设 ---------- */
+  var tip = P3.attachTooltip(host, viewer);
+  var picker = P3.createPicker(viewer, {
+    onHover: function (ud) {
+      if (!ud) { tip.hide(); return; }
+      var m = DEV[ud.tag];
+      tip.show('<b>' + ud.tag + '</b> ' + (m ? m.name : '') + '<br>' +
+        (m ? m.area + ' · ' + m.state + '<br>' + m.extra : ''));
+    },
+    onSelect: function (ud) { selectDevice(ud.tag, false); }
+  });
+
+  P3.attachHud(host, viewer, {
+    tip: '拖拽旋转 · 滚轮缩放 · 右键平移 · 双击复位',
+    presets: [
+      { label: '全景', view: { theta: -0.30, phi: 1.05, dist: 26, target: [0, 3.5, 0] } },
+      { label: '俯视', view: { theta: -0.30, phi: 0.34, dist: 25, target: [0, 3.2, 0] } },
+      { label: '正视', view: { theta: 0.02, phi: 1.32, dist: 24, target: [0, 3.5, 0] } }
+    ]
+  });
+
+  // 图例（沿用原 SVG 图例内容与配色）
+  var lg = document.createElement('div');
+  lg.className = 'scene-legend';
+  lg.innerHTML =
+    '<div class="lg-t">图例 · LEGEND</div>' +
+    '<div><i style="background:#fbbf24"></i>热侧工艺 (Hot)　<i style="background:#38bdf8"></i>冷侧工艺 (Cold)</div>' +
+    '<div><span class="dotl" style="background:#4ade80"></span>运行 (Run)　<span class="dotl" style="background:#5a7ab0"></span>停止 (Stop)</div>' +
+    '<div style="color:#5a7ab0">粒子流向 = 介质方向 · 标签色 = 回路属性</div>';
+  host.appendChild(lg);
+
+  /* ---------- 8. 与既有 UI 联动（设备树 / 详情卡） ---------- */
+  function markTree(tag) {
+    document.querySelectorAll('#treeList .tree-item').forEach(function (it) {
+      it.classList.toggle('active', it.dataset.tag === tag);
+    });
+  }
+  function markDetail(tag) {
+    document.querySelectorAll('.detail-card').forEach(function (c) {
+      var h = c.querySelector('h4');
+      var on = !!h && h.textContent.indexOf(tag) === 0;
+      c.style.borderColor = on ? '#00d4ff' : '';
+      c.style.boxShadow = on ? 'inset 0 0 22px rgba(0,212,255,0.18)' : '';
+    });
+  }
+  function focusOn(tag) {
+    var d = DEV[tag]; if (!d) return;
+    var p = d.group.position;
+    viewer.rig.setView({ target: [p.x, 2.8, p.z], dist: 21, phi: 1.02, theta: -0.62 });
+  }
+  function selectDevice(tag, doFocus) {
+    var d = DEV[tag]; if (!d) return;
+    markTree(tag); markDetail(tag);
+    picker.select(d.group);
+    if (doFocus !== false) focusOn(tag);
+  }
+  document.getElementById('treeList').addEventListener('click', function (e) {
+    var it = e.target.closest ? e.target.closest('.tree-item') : null;
+    if (it && it.dataset.tag) selectDevice(it.dataset.tag, true);
+  });
+})();
+</script>
+
+<!-- ===== 页面导航 & 画布自适应 ===== -->
+<script src="./nav.js"></script>
+<script src="./fit-screen.js"></script>
+</body>
+</html>

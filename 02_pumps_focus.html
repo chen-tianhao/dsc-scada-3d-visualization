@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2, viewport-fit=cover">
+<title>输送设备重点大屏 · 离心泵组运行态势</title>
+<script src="./vendor/chart.umd.min.js"></script>
+<script>window.Chart||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/scr'+'ipt>');</script>
+<script src="./data.js"></script>
+<style>
+  :root {
+    --bg-0: #050b1a;
+    --bg-1: #0a1428;
+    --bg-2: #0f1d3a;
+    --bg-3: #14274a;
+    --line: #1f3a6b;
+    --line-2: #2a4d8c;
+    --text: #d6e4ff;
+    --text-2: #8aa5d3;
+    --text-3: #5a7ab0;
+    --accent: #00d4ff;
+    --green: #4ade80;
+    --blue: #38bdf8;
+    --orange: #fb923c;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --purple: #c084fc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #0a1e3f 0%, var(--bg-0) 70%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .screen {
+    width: 1920px;
+    height: 1080px;
+    display: grid;
+    grid-template-rows: 70px 1fr 250px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+  .panel {
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.65) 0%, rgba(10, 20, 40, 0.65) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
+  }
+  .panel-title {
+    position: absolute; top: 0; left: 0; right: 0; height: 30px;
+    display: flex; align-items: center; padding: 0 14px;
+    background: linear-gradient(90deg, rgba(0,212,255,0.15) 0%, transparent 100%);
+    font-size: 12px; color: var(--accent); letter-spacing: 1px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-title::before { content:''; width:3px; height:14px; background: var(--accent); margin-right: 8px; box-shadow: 0 0 6px var(--accent); }
+  .panel-body { padding: 36px 14px 14px; height: 100%; overflow: hidden; }
+  .corner { position: absolute; width: 12px; height: 12px; border: 0 solid var(--accent); }
+  .corner.tl { top: 4px; left: 4px; border-top-width: 1px; border-left-width: 1px; }
+  .corner.tr { top: 4px; right: 4px; border-top-width: 1px; border-right-width: 1px; }
+  .corner.bl { bottom: 4px; left: 4px; border-bottom-width: 1px; border-left-width: 1px; }
+  .corner.br { bottom: 4px; right: 4px; border-bottom-width: 1px; border-right-width: 1px; }
+
+  /* === Header === */
+  .header {
+    background: linear-gradient(90deg, #0a1e3f 0%, #0f2a55 50%, #0a1e3f 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    display: flex; align-items: center; padding: 0 30px;
+    position: relative; overflow: hidden;
+  }
+  .header h1 {
+    flex: 1; text-align: center;
+    font-size: 26px; font-weight: 700; letter-spacing: 4px;
+    background: linear-gradient(180deg, #ffffff 0%, #6bb6ff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 0 30px rgba(0,212,255,0.4);
+  }
+  .header h1 .sub { font-size: 14px; letter-spacing: 2px; color: var(--text-2); margin-left: 12px; -webkit-text-fill-color: var(--text-2); }
+  .header .meta { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); text-align: right; font-size: 12px; color: var(--text-2); line-height: 1.6; }
+  .header .logo { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 14px; letter-spacing: 1px; }
+  .header .logo::before { content: ''; width: 22px; height: 22px; border: 2px solid var(--accent); border-radius: 50%; box-shadow: 0 0 12px var(--accent); }
+  .header .logo::after { content: ''; position: absolute; left: 38px; top: 50%; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; transform: translateY(-50%); box-shadow: 0 0 8px var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:translateY(-50%) scale(1)} 50%{opacity:.5;transform:translateY(-50%) scale(1.4)} }
+
+  /* === Pump cards === */
+  .pump-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .pump-card {
+    background: linear-gradient(180deg, rgba(20, 39, 74, 0.8) 0%, rgba(10, 20, 40, 0.8) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .pump-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6; }
+  .pump-card .pump-head {
+    height: 36px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(90deg, rgba(0,212,255,0.1) 0%, transparent 100%);
+  }
+  .pump-head .name { font-size: 14px; color: var(--text); font-weight: 700; letter-spacing: 1px; }
+  .pump-head .name small { font-size: 11px; color: var(--text-2); margin-left: 8px; font-weight: 400; }
+  .pump-head .status-pill {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; letter-spacing: 1px; font-weight: 600;
+  }
+  .pill-run { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid var(--green); }
+  .pill-stop { background: rgba(138,165,211,0.15); color: var(--text-2); border: 1px solid var(--text-2); }
+  .pill-warn { background: rgba(251,146,60,0.15); color: var(--orange); border: 1px solid var(--orange); }
+
+  .pump-body { display: grid; grid-template-columns: 360px 1fr; height: calc(100% - 36px); }
+  .pump-3d { background: radial-gradient(ellipse at 50% 60%, #0f2a55 0%, #050b1a 70%); position: relative; padding: 10px; border-right: 1px solid var(--line); }
+  .pump-3d svg { width: 100%; height: 100%; }
+  /* === 3D 画布（Three.js）与 2D/3D 切换 === */
+  .pump-canvas { position: absolute; inset: 6px; display: none; }
+  .pump-canvas canvas { display: block; touch-action: none; }
+  .pump-3d.mode3d .pump-2d { display: none; }
+  .pump-3d.mode3d .pump-canvas { display: block; }
+  .pump-3d.mode3d { opacity: 1 !important; }
+  .p3d-toggle {
+    position: absolute; right: 8px; top: 6px; z-index: 7;
+    font-size: 10px; letter-spacing: 1px; cursor: pointer;
+    color: var(--accent); background: rgba(5,11,26,0.8);
+    border: 1px solid var(--line); border-radius: 3px; padding: 2px 8px;
+    transition: all .18s ease;
+  }
+  .p3d-toggle:hover { border-color: var(--accent); background: rgba(0,212,255,0.16); color: #fff; }
+  .pump-3d .p3d-hud { right: 8px; bottom: 6px; }
+  .pump-3d .p3d-hud-tip { display: none; }
+  .pump-params { display: grid; grid-template-rows: 1fr 1fr; }
+
+  /* === Param table === */
+  .pmain { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+  .pmain > div { background: rgba(10, 20, 40, 0.5); padding: 10px 14px; }
+  .pmain .pl { font-size: 11px; color: var(--text-2); letter-spacing: 1px; }
+  .pmain .pv { font-size: 22px; color: var(--accent); font-family: "DIN Alternate", monospace; font-weight: 700; margin-top: 2px; }
+  .pmain .pv .u { font-size: 11px; color: var(--text-2); margin-left: 4px; font-weight: 400; }
+  .pmain .ps { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+  .pmain .ps .up { color: var(--green); }
+  .pmain .ps .down { color: var(--red); }
+  .pmain .ps .neutral { color: var(--text-2); }
+
+  .pbot { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--line); }
+  .pbot > div { background: rgba(10, 20, 40, 0.5); padding: 8px 12px; }
+  .pbot .pl { font-size: 10px; color: var(--text-3); }
+  .pbot .pv { font-size: 16px; color: var(--text); font-family: monospace; font-weight: 600; margin-top: 1px; }
+  .pbot .pv .u { font-size: 10px; color: var(--text-3); margin-left: 2px; }
+  .pbot .pv.running { color: var(--green); }
+  .pbot .pv.stopped { color: var(--text-3); }
+
+  /* === Bottom row === */
+  .bottom-row { display: grid; grid-template-columns: 1.3fr 1fr 1.1fr; gap: 10px; }
+  .energy-card .panel-body { padding: 40px 16px 16px; }
+  .energy-legend { display: flex; gap: 16px; font-size: 11px; color: var(--text-2); margin-top: 8px; }
+  .energy-legend .sw { width: 12px; height: 4px; display: inline-block; vertical-align: middle; margin-right: 4px; }
+
+  .runtime-card .panel-body { padding: 40px 16px 16px; }
+  .rt-row { display: grid; grid-template-columns: 80px 1fr 60px 60px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 12px; }
+  .rt-row:last-child { border-bottom: none; }
+  .rt-row .tag { color: var(--text); font-weight: 600; font-family: monospace; }
+  .rt-row .bar { height: 8px; background: rgba(0,0,0,0.4); border-radius: 1px; position: relative; overflow: hidden; }
+  .rt-row .bar .fill { position: absolute; top:0; left:0; bottom:0; background: linear-gradient(90deg, var(--accent), var(--green)); }
+  .rt-row .bar .fill.warn { background: linear-gradient(90deg, var(--orange), var(--red)); }
+  .rt-row .num { color: var(--text); font-family: monospace; text-align: right; }
+  .rt-row .pct { color: var(--text-2); font-family: monospace; text-align: right; }
+
+  .switch-card .panel-body { padding: 40px 16px 16px; }
+  .switch-svg { width: 100%; height: 100%; }
+  .switch-log { max-height: 100%; overflow: hidden; }
+  .sw-row { display: grid; grid-template-columns: 60px 80px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--line); font-size: 11px; }
+  .sw-row .t { color: var(--text-3); font-family: monospace; }
+  .sw-row .d { color: var(--text); }
+  .sw-row .m { color: var(--text-2); }
+
+  /* tag dot */
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  .dot.green { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .dot.gray { background: #5a7ab0; }
+  .dot.orange { background: var(--orange); }
+
+  /* iso label */
+  .lbl { font-family: monospace; fill: var(--text); font-size: 9px; }
+  .lbl-bg { fill: #050b1a; opacity: 0.85; }
+  .lbl-tag { font-family: monospace; fill: var(--accent); font-size: 11px; font-weight: 700; }
+
+  /* === 移动端 === */
+  @media (max-width: 900px) {
+    html, body { height: auto; }
+    body { overflow: auto; }
+    .screen { width: 100%; height: auto; display: flex; flex-direction: column; padding: 8px; gap: 8px; }
+    .header { height: auto; min-height: 58px; padding: 10px 12px; flex-wrap: wrap; }
+    .header .logo, .header .meta { position: static; transform: none; }
+    .header h1 { font-size: 16px; letter-spacing: 2px; text-align: left; }
+    .header h1 .sub { display: block; margin: 4px 0 0; font-size: 11px; }
+    .pump-row { grid-template-columns: 1fr; }
+    .pump-body { grid-template-columns: 1fr; height: auto; }
+    .pump-3d { height: 250px; border-right: none; border-bottom: 1px solid var(--line); }
+    .pmain { grid-template-columns: 1fr 1fr; }
+    .pbot { grid-template-columns: 1fr 1fr 1fr; }
+    .bottom-row { grid-template-columns: 1fr; }
+    .energy-card .panel-body, .runtime-card .panel-body, .switch-card .panel-body { padding: 40px 12px 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">DCS · MOTOR</div>
+    <h1>输送设备重点大屏<span class="sub">CONVEYING EQUIPMENT FOCUS · 离心泵组运行态势</span></h1>
+    <div class="meta">
+      <div>当前时刻 <span id="tsNow">2026-10-15 17:00:00</span></div>
+      <div>3 台泵 · 主用 1 · 备用 1 · 冷却 1</div>
+    </div>
+  </div>
+
+  <!-- 3 Pump cards -->
+  <div class="pump-row">
+    <!-- P-101A 主用 -->
+    <div class="pump-card">
+      <div class="pump-head">
+        <div class="name">P-101A <small>主用输送泵 · 离心泵 · 37 kW</small></div>
+        <div class="status-pill pill-run">● RUN · 主用</div>
+      </div>
+      <div class="pump-body">
+        <div class="pump-3d">
+          <svg class="pump-2d" viewBox="0 0 360 400" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="g101a" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#2a4d8c"/>
+                <stop offset="100%" stop-color="#0a1e3f"/>
+              </linearGradient>
+              <linearGradient id="g101aH" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#3a6db0"/>
+                <stop offset="100%" stop-color="#14274a"/>
+              </linearGradient>
+              <radialGradient id="gFan" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <!-- ground shadow -->
+            <ellipse cx="180" cy="370" rx="120" ry="14" fill="#000" opacity="0.4"/>
+            <!-- base plate -->
+            <rect x="60" y="320" width="240" height="40" fill="#14274a" stroke="#1f3a6b"/>
+            <rect x="60" y="320" width="240" height="6" fill="#2a4d8c"/>
+            <!-- bolts -->
+            <circle cx="80" cy="340" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <circle cx="280" cy="340" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <circle cx="80" cy="320" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <circle cx="280" cy="320" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <!-- pump body (cylindrical, volute) -->
+            <circle cx="100" cy="240" r="60" fill="url(#g101aH)" stroke="#00d4ff" stroke-width="1.5"/>
+            <circle cx="100" cy="240" r="48" fill="#0a1e3f" stroke="#2a4d8c"/>
+            <!-- impeller (rotating) -->
+            <g transform="translate(100,240)">
+              <circle r="42" fill="url(#gFan)"/>
+              <g>
+                <path d="M 0 0 Q 12 -8 18 0 Q 12 8 0 0 Z" fill="#00d4ff" opacity="0.7"/>
+                <path d="M 0 0 Q 8 -12 0 -18 Q -8 -12 0 0 Z" fill="#00d4ff" opacity="0.7"/>
+                <path d="M 0 0 Q -12 -8 -18 0 Q -12 8 0 0 Z" fill="#00d4ff" opacity="0.7"/>
+                <path d="M 0 0 Q -8 12 0 18 Q 8 12 0 0 Z" fill="#00d4ff" opacity="0.7"/>
+                <path d="M 0 0 Q 16 -4 14 12 Q 4 14 0 0 Z" fill="#38bdf8" opacity="0.5"/>
+                <path d="M 0 0 Q -16 -4 -14 12 Q -4 14 0 0 Z" fill="#38bdf8" opacity="0.5"/>
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.5s" repeatCount="indefinite"/>
+              </g>
+              <circle r="6" fill="#0a1e3f" stroke="#00d4ff" stroke-width="1"/>
+            </g>
+            <!-- shaft + coupling -->
+            <rect x="155" y="236" width="30" height="8" fill="#5a7ab0"/>
+            <!-- motor body -->
+            <rect x="180" y="200" width="120" height="80" rx="4" fill="url(#g101a)" stroke="#00d4ff" stroke-width="1.5"/>
+            <!-- motor cooling fins -->
+            <g stroke="#2a4d8c" stroke-width="0.6">
+              <line x1="190" y1="205" x2="190" y2="275"/>
+              <line x1="200" y1="205" x2="200" y2="275"/>
+              <line x1="210" y1="205" x2="210" y2="275"/>
+              <line x1="220" y1="205" x2="220" y2="275"/>
+              <line x1="230" y1="205" x2="230" y2="275"/>
+              <line x1="240" y1="205" x2="240" y2="275"/>
+              <line x1="250" y1="205" x2="250" y2="275"/>
+              <line x1="260" y1="205" x2="260" y2="275"/>
+              <line x1="270" y1="205" x2="270" y2="275"/>
+              <line x1="280" y1="205" x2="280" y2="275"/>
+              <line x1="290" y1="205" x2="290" y2="275"/>
+            </g>
+            <!-- terminal box -->
+            <rect x="220" y="195" width="40" height="10" fill="#14274a" stroke="#2a4d8c"/>
+            <!-- motor fan (back) -->
+            <g transform="translate(295,240)">
+              <circle r="14" fill="#14274a" stroke="#00d4ff"/>
+              <g>
+                <path d="M 0 0 L 0 -12 L 3 -4 Z" fill="#00d4ff"/>
+                <path d="M 0 0 L 12 0 L 4 3 Z" fill="#00d4ff"/>
+                <path d="M 0 0 L 0 12 L -3 4 Z" fill="#00d4ff"/>
+                <path d="M 0 0 L -12 0 L -4 -3 Z" fill="#00d4ff"/>
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.5s" repeatCount="indefinite"/>
+              </g>
+            </g>
+            <!-- inlet pipe (left) -->
+            <rect x="20" y="232" width="40" height="16" fill="#1f3a6b" stroke="#5a7ab0"/>
+            <rect x="14" y="226" width="6" height="28" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <!-- outlet pipe (right top) -->
+            <path d="M 100 180 L 100 140 L 160 140" fill="none" stroke="#1f3a6b" stroke-width="16"/>
+            <path d="M 100 180 L 100 140 L 160 140" fill="none" stroke="#2a4d8c" stroke-width="14"/>
+            <!-- gauges on pump -->
+            <circle cx="100" cy="295" r="14" fill="#050b1a" stroke="#00d4ff"/>
+            <text x="100" y="298" text-anchor="middle" font-size="9" fill="#00d4ff" font-family="monospace">PT</text>
+            <text x="100" y="312" text-anchor="middle" font-size="8" fill="#5a7ab0" font-family="monospace">100kPa</text>
+            <!-- name plate -->
+            <rect x="180" y="250" width="60" height="20" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+            <text x="210" y="263" text-anchor="middle" font-size="10" fill="#00d4ff" font-family="monospace" font-weight="700">37 kW</text>
+            <!-- flow direction arrow -->
+            <path d="M 65 240 L 50 240" stroke="#00d4ff" stroke-width="2" fill="none" marker-end="url(#arr101a)"/>
+            <defs>
+              <marker id="arr101a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 6 3 L 0 6 Z" fill="#00d4ff"/>
+              </marker>
+            </defs>
+            <path d="M 110 165 L 110 145" stroke="#00d4ff" stroke-width="2" fill="none" marker-end="url(#arr101a)"/>
+            <!-- tag -->
+            <rect x="80" y="40" width="200" height="24" fill="#050b1a" stroke="#00d4ff" rx="2"/>
+            <text x="180" y="56" text-anchor="middle" class="lbl-tag">P-101A 主用泵</text>
+            <!-- rotation indicator -->
+            <g transform="translate(50, 80)">
+              <text x="0" y="0" class="lbl" fill="#5a7ab0">方向</text>
+              <path d="M 30 4 A 8 8 0 1 1 30 -4" stroke="#4ade80" stroke-width="1.5" fill="none" marker-end="url(#arr101a)"/>
+            </g>
+            <!-- status panel bottom -->
+            <rect x="60" y="380" width="240" height="14" fill="#050b1a" stroke="#1f3a6b" rx="2"/>
+            <text x="180" y="390" text-anchor="middle" class="lbl" fill="#4ade80">● RUNNING · 流量 62.9 m³/h</text>
+          </svg>
+          <div class="pump-canvas"></div>
+        </div>
+        <div class="pump-params">
+          <div class="pmain">
+            <div>
+              <div class="pl">流量 FT-101A</div>
+              <div class="pv">62.9<span class="u">m³/h</span></div>
+              <div class="ps"><span class="up">↑</span> 78.6% 额定</div>
+            </div>
+            <div>
+              <div class="pl">压力 PT-101A</div>
+              <div class="pv">100.0<span class="u">kPa</span></div>
+              <div class="ps">额定 50m 扬程</div>
+            </div>
+            <div>
+              <div class="pl">电流 IT-101A</div>
+              <div class="pv">56.2<span class="u">A</span></div>
+              <div class="ps"><span class="up">↑</span> 28% 量程</div>
+            </div>
+            <div>
+              <div class="pl">频率 SZ-101A</div>
+              <div class="pv">38.5<span class="u">Hz</span></div>
+              <div class="ps">变频 77% 设定</div>
+            </div>
+          </div>
+          <div class="pbot">
+            <div>
+              <div class="pl">电功率 (实测)</div>
+              <div class="pv running">31.82<span class="u">kW</span></div>
+            </div>
+            <div>
+              <div class="pl">效率 η</div>
+              <div class="pv">74.2<span class="u">%</span></div>
+            </div>
+            <div>
+              <div class="pl">状态 ST-101A</div>
+              <div class="pv running">1 · RUN</div>
+            </div>
+            <div>
+              <div class="pl">累计运行</div>
+              <div class="pv">8,432<span class="u">h</span></div>
+            </div>
+            <div>
+              <div class="pl">累计启停</div>
+              <div class="pv">146<span class="u">次</span></div>
+            </div>
+            <div>
+              <div class="pl">最近检修</div>
+              <div class="pv">2026-09-12</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- P-101B 备用 -->
+    <div class="pump-card">
+      <div class="pump-head">
+        <div class="name">P-101B <small>备用输送泵 · 离心泵 · 37 kW</small></div>
+        <div class="status-pill pill-stop">○ STOP · 备用</div>
+      </div>
+      <div class="pump-body">
+        <div class="pump-3d" style="opacity:0.7">
+          <svg class="pump-2d" viewBox="0 0 360 400" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="g101b" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1a2f55"/>
+                <stop offset="100%" stop-color="#050b1a"/>
+              </linearGradient>
+              <radialGradient id="gFanB" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0%" stop-color="#5a7ab0" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="#5a7ab0" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="180" cy="370" rx="120" ry="14" fill="#000" opacity="0.4"/>
+            <rect x="60" y="320" width="240" height="40" fill="#0f1d3a" stroke="#1f3a6b"/>
+            <rect x="60" y="320" width="240" height="6" fill="#1a2f55"/>
+            <circle cx="80" cy="340" r="4" fill="#050b1a" stroke="#1f3a6b"/>
+            <circle cx="280" cy="340" r="4" fill="#050b1a" stroke="#1f3a6b"/>
+            <circle cx="80" cy="320" r="4" fill="#050b1a" stroke="#1f3a6b"/>
+            <circle cx="280" cy="320" r="4" fill="#050b1a" stroke="#1f3a6b"/>
+            <circle cx="100" cy="240" r="60" fill="url(#g101b)" stroke="#5a7ab0" stroke-width="1.5"/>
+            <circle cx="100" cy="240" r="48" fill="#050b1a" stroke="#1f3a6b"/>
+            <g transform="translate(100,240)">
+              <circle r="42" fill="url(#gFanB)"/>
+              <path d="M 0 0 Q 12 -8 18 0 Q 12 8 0 0 Z" fill="#5a7ab0" opacity="0.4"/>
+              <path d="M 0 0 Q 8 -12 0 -18 Q -8 -12 0 0 Z" fill="#5a7ab0" opacity="0.4"/>
+              <path d="M 0 0 Q -12 -8 -18 0 Q -12 8 0 0 Z" fill="#5a7ab0" opacity="0.4"/>
+              <path d="M 0 0 Q -8 12 0 18 Q 8 12 0 0 Z" fill="#5a7ab0" opacity="0.4"/>
+              <circle r="6" fill="#0a1e3f" stroke="#5a7ab0"/>
+            </g>
+            <rect x="155" y="236" width="30" height="8" fill="#1f3a6b"/>
+            <rect x="180" y="200" width="120" height="80" rx="4" fill="url(#g101b)" stroke="#5a7ab0" stroke-width="1.5"/>
+            <g stroke="#1a2f55" stroke-width="0.6">
+              <line x1="190" y1="205" x2="190" y2="275"/>
+              <line x1="200" y1="205" x2="200" y2="275"/>
+              <line x1="210" y1="205" x2="210" y2="275"/>
+              <line x1="220" y1="205" x2="220" y2="275"/>
+              <line x1="230" y1="205" x2="230" y2="275"/>
+              <line x1="240" y1="205" x2="240" y2="275"/>
+              <line x1="250" y1="205" x2="250" y2="275"/>
+              <line x1="260" y1="205" x2="260" y2="275"/>
+              <line x1="270" y1="205" x2="270" y2="275"/>
+              <line x1="280" y1="205" x2="280" y2="275"/>
+              <line x1="290" y1="205" x2="290" y2="275"/>
+            </g>
+            <rect x="220" y="195" width="40" height="10" fill="#0a1e3f" stroke="#1f3a6b"/>
+            <g transform="translate(295,240)">
+              <circle r="14" fill="#0a1e3f" stroke="#5a7ab0"/>
+              <path d="M 0 0 L 0 -12 L 3 -4 Z" fill="#5a7ab0" opacity="0.4"/>
+              <path d="M 0 0 L 12 0 L 4 3 Z" fill="#5a7ab0" opacity="0.4"/>
+              <path d="M 0 0 L 0 12 L -3 4 Z" fill="#5a7ab0" opacity="0.4"/>
+              <path d="M 0 0 L -12 0 L -4 -3 Z" fill="#5a7ab0" opacity="0.4"/>
+            </g>
+            <rect x="20" y="232" width="40" height="16" fill="#1f3a6b" stroke="#5a7ab0"/>
+            <rect x="14" y="226" width="6" height="28" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <path d="M 100 180 L 100 140 L 160 140" fill="none" stroke="#1f3a6b" stroke-width="16"/>
+            <path d="M 100 180 L 100 140 L 160 140" fill="none" stroke="#1a2f55" stroke-width="14"/>
+            <rect x="180" y="250" width="60" height="20" fill="#050b1a" stroke="#5a7ab0" rx="2"/>
+            <text x="210" y="263" text-anchor="middle" font-size="10" fill="#5a7ab0" font-family="monospace" font-weight="700">37 kW</text>
+            <rect x="80" y="40" width="200" height="24" fill="#050b1a" stroke="#5a7ab0" rx="2"/>
+            <text x="180" y="56" text-anchor="middle" font-size="11" fill="#5a7ab0" font-family="monospace" font-weight="700">P-101B 备用泵</text>
+            <rect x="60" y="380" width="240" height="14" fill="#050b1a" stroke="#1f3a6b" rx="2"/>
+            <text x="180" y="390" text-anchor="middle" class="lbl" fill="#5a7ab0">○ STOPPED · 0 m³/h · 待机</text>
+            <!-- standby indicator -->
+            <text x="100" y="100" class="lbl" fill="#5a7ab0" text-anchor="middle">STANDBY</text>
+            <text x="100" y="115" class="lbl" fill="#5a7ab0" text-anchor="middle" font-size="8">连续待机 14d 4h</text>
+          </svg>
+          <div class="pump-canvas"></div>
+        </div>
+        <div class="pump-params">
+          <div class="pmain">
+            <div>
+              <div class="pl">流量 FT-101B</div>
+              <div class="pv" style="color:var(--text-3)">0.0<span class="u">m³/h</span></div>
+              <div class="ps"><span class="neutral">—</span> 待机</div>
+            </div>
+            <div>
+              <div class="pl">压力 PT-101B</div>
+              <div class="pv" style="color:var(--text-3)">0.0<span class="u">kPa</span></div>
+              <div class="ps">0 出口</div>
+            </div>
+            <div>
+              <div class="pl">电流 IT-101B</div>
+              <div class="pv" style="color:var(--text-3)">0.0<span class="u">A</span></div>
+              <div class="ps"><span class="neutral">—</span> 0%</div>
+            </div>
+            <div>
+              <div class="pl">频率 SZ-101B</div>
+              <div class="pv" style="color:var(--text-3)">0.0<span class="u">Hz</span></div>
+              <div class="ps">变频停</div>
+            </div>
+          </div>
+          <div class="pbot">
+            <div>
+              <div class="pl">电功率</div>
+              <div class="pv stopped">0.00<span class="u">kW</span></div>
+            </div>
+            <div>
+              <div class="pl">效率 η</div>
+              <div class="pv" style="color:var(--text-3)">—</div>
+            </div>
+            <div>
+              <div class="pl">状态 ST-101B</div>
+              <div class="pv stopped">0 · STOP</div>
+            </div>
+            <div>
+              <div class="pl">累计运行</div>
+              <div class="pv">1,287<span class="u">h</span></div>
+            </div>
+            <div>
+              <div class="pl">累计启停</div>
+              <div class="pv">23<span class="u">次</span></div>
+            </div>
+            <div>
+              <div class="pl">最近检修</div>
+              <div class="pv">2026-08-30</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- P-201 冷却水泵 -->
+    <div class="pump-card">
+      <div class="pump-head">
+        <div class="name">P-201 <small>冷却水循环泵 · 离心泵 · 22 kW</small></div>
+        <div class="status-pill pill-run" style="color:var(--blue); border-color:var(--blue); background:rgba(56,189,248,0.15);">● RUN · 冷却</div>
+      </div>
+      <div class="pump-body">
+        <div class="pump-3d">
+          <svg class="pump-2d" viewBox="0 0 360 400" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="g201" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1a4a7a"/>
+                <stop offset="100%" stop-color="#0a1e3f"/>
+              </linearGradient>
+              <linearGradient id="g201H" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#2a5d92"/>
+                <stop offset="100%" stop-color="#14274a"/>
+              </linearGradient>
+              <radialGradient id="gFanC" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="180" cy="370" rx="120" ry="14" fill="#000" opacity="0.4"/>
+            <rect x="60" y="320" width="240" height="40" fill="#14274a" stroke="#1f3a6b"/>
+            <rect x="60" y="320" width="240" height="6" fill="#2a5d92"/>
+            <circle cx="80" cy="340" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <circle cx="280" cy="340" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <circle cx="80" cy="320" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <circle cx="280" cy="320" r="4" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <circle cx="100" cy="240" r="60" fill="url(#g201H)" stroke="#38bdf8" stroke-width="1.5"/>
+            <circle cx="100" cy="240" r="48" fill="#0a1e3f" stroke="#1f3a6b"/>
+            <g transform="translate(100,240)">
+              <circle r="42" fill="url(#gFanC)"/>
+              <g>
+                <path d="M 0 0 Q 12 -8 18 0 Q 12 8 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <path d="M 0 0 Q 8 -12 0 -18 Q -8 -12 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <path d="M 0 0 Q -12 -8 -18 0 Q -12 8 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <path d="M 0 0 Q -8 12 0 18 Q 8 12 0 0 Z" fill="#38bdf8" opacity="0.7"/>
+                <path d="M 0 0 Q 16 -4 14 12 Q 4 14 0 0 Z" fill="#00d4ff" opacity="0.5"/>
+                <path d="M 0 0 Q -16 -4 -14 12 Q -4 14 0 0 Z" fill="#00d4ff" opacity="0.5"/>
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.5s" repeatCount="indefinite"/>
+              </g>
+              <circle r="6" fill="#0a1e3f" stroke="#38bdf8" stroke-width="1"/>
+            </g>
+            <rect x="155" y="236" width="30" height="8" fill="#5a7ab0"/>
+            <rect x="180" y="200" width="120" height="80" rx="4" fill="url(#g201)" stroke="#38bdf8" stroke-width="1.5"/>
+            <g stroke="#1a2f55" stroke-width="0.6">
+              <line x1="190" y1="205" x2="190" y2="275"/>
+              <line x1="200" y1="205" x2="200" y2="275"/>
+              <line x1="210" y1="205" x2="210" y2="275"/>
+              <line x1="220" y1="205" x2="220" y2="275"/>
+              <line x1="230" y1="205" x2="230" y2="275"/>
+              <line x1="240" y1="205" x2="240" y2="275"/>
+              <line x1="250" y1="205" x2="250" y2="275"/>
+              <line x1="260" y1="205" x2="260" y2="275"/>
+              <line x1="270" y1="205" x2="270" y2="275"/>
+              <line x1="280" y1="205" x2="280" y2="275"/>
+              <line x1="290" y1="205" x2="290" y2="275"/>
+            </g>
+            <rect x="220" y="195" width="40" height="10" fill="#14274a" stroke="#1f3a6b"/>
+            <g transform="translate(295,240)">
+              <circle r="14" fill="#14274a" stroke="#38bdf8"/>
+              <g>
+                <path d="M 0 0 L 0 -12 L 3 -4 Z" fill="#38bdf8"/>
+                <path d="M 0 0 L 12 0 L 4 3 Z" fill="#38bdf8"/>
+                <path d="M 0 0 L 0 12 L -3 4 Z" fill="#38bdf8"/>
+                <path d="M 0 0 L -12 0 L -4 -3 Z" fill="#38bdf8"/>
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.5s" repeatCount="indefinite"/>
+              </g>
+            </g>
+            <rect x="20" y="232" width="40" height="16" fill="#1f3a6b" stroke="#5a7ab0"/>
+            <rect x="14" y="226" width="6" height="28" fill="#0a1e3f" stroke="#5a7ab0"/>
+            <path d="M 100 180 L 100 140 L 160 140" fill="none" stroke="#1f3a6b" stroke-width="16"/>
+            <path d="M 100 180 L 100 140 L 160 140" fill="none" stroke="#2a5d92" stroke-width="14"/>
+            <rect x="180" y="250" width="60" height="20" fill="#050b1a" stroke="#38bdf8" rx="2"/>
+            <text x="210" y="263" text-anchor="middle" font-size="10" fill="#38bdf8" font-family="monospace" font-weight="700">22 kW</text>
+            <rect x="80" y="40" width="200" height="24" fill="#050b1a" stroke="#38bdf8" rx="2"/>
+            <text x="180" y="56" text-anchor="middle" class="lbl-tag" fill="#38bdf8">P-201 冷却水泵</text>
+            <rect x="60" y="380" width="240" height="14" fill="#050b1a" stroke="#1f3a6b" rx="2"/>
+            <text x="180" y="390" text-anchor="middle" class="lbl" fill="#38bdf8">● RUNNING · 流量 88 m³/h</text>
+          </svg>
+          <div class="pump-canvas"></div>
+        </div>
+        <div class="pump-params">
+          <div class="pmain">
+            <div>
+              <div class="pl">流量 FT-201</div>
+              <div class="pv" style="color:var(--blue)">88.0<span class="u">m³/h</span></div>
+              <div class="ps"><span class="up">↑</span> 58.7% 额定</div>
+            </div>
+            <div>
+              <div class="pl">压力 PT-201</div>
+              <div class="pv" style="color:var(--blue)">245.5<span class="u">kPa</span></div>
+              <div class="ps">供水压</div>
+            </div>
+            <div>
+              <div class="pl">电流 IT-201</div>
+              <div class="pv" style="color:var(--blue)">31.7<span class="u">A</span></div>
+              <div class="ps"><span class="up">↑</span> 12.7% 量程</div>
+            </div>
+            <div>
+              <div class="pl">回水温度</div>
+              <div class="pv" style="color:var(--blue)">38.6<span class="u">°C</span></div>
+              <div class="ps">ΔT 10.5°C</div>
+            </div>
+          </div>
+          <div class="pbot">
+            <div>
+              <div class="pl">电功率</div>
+              <div class="pv running">17.74<span class="u">kW</span></div>
+            </div>
+            <div>
+              <div class="pl">效率 η</div>
+              <div class="pv">81.6<span class="u">%</span></div>
+            </div>
+            <div>
+              <div class="pl">状态 ST-201</div>
+              <div class="pv running">1 · RUN</div>
+            </div>
+            <div>
+              <div class="pl">累计运行</div>
+              <div class="pv">12,675<span class="u">h</span></div>
+            </div>
+            <div>
+              <div class="pl">累计启停</div>
+              <div class="pv">89<span class="u">次</span></div>
+            </div>
+            <div>
+              <div class="pl">最近检修</div>
+              <div class="pv">2026-09-28</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom row -->
+  <div class="bottom-row">
+    <div class="panel energy-card">
+      <div class="panel-title">能效对比 · 24h POWER & CURRENT TREND</div>
+      <div class="panel-body">
+        <canvas id="energyChart" style="height:160px"></canvas>
+        <div class="energy-legend">
+          <span><span class="sw" style="background:#00d4ff"></span>P-101A 电流 (A)</span>
+          <span><span class="sw" style="background:#38bdf8"></span>P-201 电流 (A)</span>
+          <span><span class="sw" style="background:#4ade80"></span>总电耗 (kW)</span>
+          <span><span class="sw" style="background:#c084fc"></span>P-101B 电流 (A)</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel runtime-card">
+      <div class="panel-title">启停逻辑与运行时长 · RUNTIME & SWITCHING</div>
+      <div class="panel-body">
+        <div class="rt-row">
+          <div class="tag">P-101A</div>
+          <div class="bar"><div class="fill" style="width:84%"></div></div>
+          <div class="num">8432 h</div>
+          <div class="pct">84%</div>
+        </div>
+        <div class="rt-row">
+          <div class="tag">P-101B</div>
+          <div class="bar"><div class="fill" style="width:13%"></div></div>
+          <div class="num">1287 h</div>
+          <div class="pct">13%</div>
+        </div>
+        <div class="rt-row">
+          <div class="tag">P-201</div>
+          <div class="bar"><div class="fill warn" style="width:91%"></div></div>
+          <div class="num">12675 h</div>
+          <div class="pct">91%</div>
+        </div>
+        <div class="rt-row" style="margin-top:8px;border-top:1px solid var(--line); padding-top:10px;">
+          <div class="tag" style="grid-column:1/-1;color:var(--accent);">切换逻辑 · SWITCHING LOGIC</div>
+        </div>
+        <div class="rt-row" style="font-size:11px; padding:4px 0;border:none;">
+          <div class="tag" style="color:var(--text-2)">主用 P-101A</div>
+          <div style="color:var(--text-2)">FT-101A &gt; 0 ↔ ST-101A = 1</div>
+          <div class="num" style="color:var(--green)">✓</div>
+          <div class="pct" style="color:var(--green)">OK</div>
+        </div>
+        <div class="rt-row" style="font-size:11px; padding:4px 0;border:none;">
+          <div class="tag" style="color:var(--text-2)">备用 P-101B</div>
+          <div style="color:var(--text-2)">FT-101B = 0 ↔ ST-101B = 0</div>
+          <div class="num" style="color:var(--green)">✓</div>
+          <div class="pct" style="color:var(--green)">OK</div>
+        </div>
+        <div class="rt-row" style="font-size:11px; padding:4px 0;border:none;">
+          <div class="tag" style="color:var(--text-2)">互备热备</div>
+          <div style="color:var(--text-2)">A 故障 → B 自启 ≤ 3 s</div>
+          <div class="num" style="color:var(--blue)">⚡</div>
+          <div class="pct" style="color:var(--blue)">ARM</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel switch-card">
+      <div class="panel-title">启停事件流 · START/STOP LOG</div>
+      <div class="panel-body">
+        <div class="switch-log">
+          <div class="sw-row"><div class="t">17:00:00</div><div class="d"><span class="dot green"></span>P-101A 持续运行</div><div class="m">已运行 14d 4h</div></div>
+          <div class="sw-row"><div class="t">16:55:12</div><div class="d"><span class="dot green"></span>SZ-101A 频率稳态 38.5Hz</div><div class="m">波动 ±0.2</div></div>
+          <div class="sw-row"><div class="t">14:00:00</div><div class="d"><span class="dot orange"></span>峰段负荷 +5%</div><div class="m">FT-101A +3.1 m³/h</div></div>
+          <div class="sw-row"><div class="t">09:30:21</div><div class="d"><span class="dot green"></span>P-201 启动</div><div class="m">ST-201 0→1 · 88 m³/h</div></div>
+          <div class="sw-row"><div class="t">09:30:18</div><div class="d"><span class="dot gray"></span>冷却预启动</div><div class="m">阀门开启 · 流量爬升 8 s</div></div>
+          <div class="sw-row"><div class="t">08:00:00</div><div class="d"><span class="dot green"></span>主用 P-101A 启动</div><div class="m">ST-101A 0→1</div></div>
+          <div class="sw-row"><div class="t">07:55:43</div><div class="d"><span class="dot orange"></span>前夜段停机</div><div class="m">计划性停机 · 节能</div></div>
+          <div class="sw-row"><div class="t">07:55:38</div><div class="d"><span class="dot gray"></span>变频降速</div><div class="m">SZ-101A 38→0 Hz · 5 s</div></div>
+          <div class="sw-row"><div class="t">02:14:09</div><div class="d"><span class="dot green"></span>P-201 自动巡检</div><div class="m">自检通过 · 5/5 规则</div></div>
+          <div class="sw-row"><div class="t">00:00:00</div><div class="d"><span class="dot green"></span>新一日启动</div><div class="m">所有测点采集正常</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Energy chart
+const ts24h = window.TS_24H || [];
+const SR = window.SERIES || {};
+const ecEl = document.getElementById('energyChart');
+if (ecEl && window.Chart) {
+new Chart(ecEl.getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: ts24h,
+    datasets: [
+      {label:'P-101A 电流 (A)', data: SR.it101a_24h || [], borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.1)', yAxisID: 'y1', tension: 0.3, pointRadius: 0, borderWidth: 1.5, fill: true},
+      {label:'P-201 电流 (A)', data: SR.it201_24h || [], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', yAxisID: 'y1', tension: 0.3, pointRadius: 0, borderWidth: 1.5, fill: true},
+      {label:'P-101B 电流 (A)', data: SR.it101b_24h || [], borderColor: '#c084fc', yAxisID: 'y1', tension: 0.3, pointRadius: 0, borderWidth: 1.5, borderDash: [4,3]},
+      {label:'总电耗 (kW)', data: SR.power_24h || [], borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.15)', yAxisID: 'y2', tension: 0.3, pointRadius: 0, borderWidth: 1.5, fill: true}
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: {mode: 'index', intersect: false},
+    plugins: {legend: {display: false}, tooltip: {backgroundColor: '#0a1428', borderColor: '#1f3a6b', borderWidth: 1, titleColor: '#00d4ff', bodyColor: '#d6e4ff'}},
+    scales: {
+      x: {ticks: {color: '#5a7ab0', font: {size: 9}, maxRotation: 0, autoSkip: true, maxTicksLimit: 8}, grid: {color: 'rgba(31,58,107,0.4)'}},
+      y1: {position: 'left', ticks: {color: '#5a7ab0', font: {size: 9}, callback: v => v+' A'}, grid: {color: 'rgba(31,58,107,0.4)'}, title: {display: true, text: '电流 A', color: '#8aa5d3', font: {size: 10}}},
+      y2: {position: 'right', ticks: {color: '#4ade80', font: {size: 9}, callback: v => v+' kW'}, grid: {display: false}, title: {display: true, text: '总电耗 kW', color: '#4ade80', font: {size: 10}}}
+    }
+  }
+});
+}
+
+const tsEl = document.getElementById('tsNow');
+if (tsEl) tsEl.textContent = (window.CURRENT_TS || new Date().toISOString()).replace('T',' ').slice(0,19);
+</script>
+
+<!-- ===== 2D 降级视图动画治理：SMIL -> 单一 RAF 驱动 ===== -->
+<script>
+(function () {
+  var svgs = document.querySelectorAll('.pump-2d');
+  if (!svgs.length) return;
+  var items = [];
+  svgs.forEach(function (svg) {
+    var host = svg.closest ? svg.closest('.pump-3d') : null;
+    svg.querySelectorAll('animateTransform[type="rotate"]').forEach(function (a) {
+      var el = a.parentNode;
+      a.remove();
+      items.push({ t: 'rot', el: el, host: host, dur: parseFloat(a.getAttribute('dur')) || 0.5 });
+    });
+    svg.querySelectorAll('animate[attributeName="cx"]').forEach(function (a) {
+      var el = a.parentNode;
+      var vals = (a.getAttribute('values') || '0;360').split(';').map(parseFloat);
+      var op = el.querySelector('animate[attributeName="opacity"]'); if (op) op.remove();
+      a.remove();
+      items.push({ t: 'cx', el: el, host: host, from: vals[0], to: vals[1], dur: parseFloat(a.getAttribute('dur')) || 6, begin: parseFloat(a.getAttribute('begin')) || 0 });
+    });
+  });
+  if (!items.length) return;
+
+  function fade(u) { return u < 0.12 ? u / 0.12 : (u > 0.88 ? (1 - u) / 0.12 : 1); }
+  var clock = 0, acc = 0, last = 0, raf = 0, STEP = 1 / 45;
+
+  function tick(now) {
+    raf = requestAnimationFrame(tick);
+    var dt = last ? (now - last) / 1000 : 0.016;
+    last = now; if (dt > 0.1) dt = 0.1;
+    acc += dt; if (acc < STEP) return;
+    clock += acc; acc = 0;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.host && it.host.classList.contains('mode3d')) continue;  // 3D 模式下不驱动 2D 隐藏图层
+      if (it.t === 'rot') {
+        it.el.setAttribute('transform', 'rotate(' + (((clock % it.dur) / it.dur) * 360).toFixed(1) + ')');
+      } else {
+        var u = ((clock + it.begin) % it.dur) / it.dur;
+        it.el.setAttribute('cx', (it.from + (it.to - it.from) * u).toFixed(1));
+        it.el.setAttribute('opacity', fade(u).toFixed(2));
+      }
+    }
+  }
+  function start() { if (!raf) { last = 0; raf = requestAnimationFrame(tick); } }
+  function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
+  document.addEventListener('visibilitychange', function () { document.hidden ? stop() : start(); });
+  start();
+})();
+</script>
+
+<!-- ===== 3D 运行时（本地优先，CDN 回退） ===== -->
+<script src="./vendor/three.min.js"></script>
+<script>window.THREE||document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"><\/scr'+'ipt>');</script>
+<script src="./three-plant.js"></script>
+
+<!-- ===== 泵体 3D 资产：替换原 SVG 剖面示意，保留 2D/3D 切换 ===== -->
+<script>
+(function () {
+  if (!window.Plant3D || !window.Plant3D.available) return;   // 降级：保留原 SVG
+  var P3 = window.Plant3D, T = P3.THREE;
+  var P = window.CURRENT_POINTS || {};
+  var AGG = window.AGGREGATES || {};
+  var pw = AGG['AGG-003 总电耗'] || {};
+  function v(id, d) { var p = P[id]; return (p && typeof p.value === 'number') ? p.value : d; }
+
+  var CFG = [
+    {
+      tag: 'P-101A', name: '主用输送泵', run: v('ST-101A', 1) === 1, accent: '#00d4ff',
+      info: v('FT-101A', 62.9).toFixed(1) + ' m³/h · ' + (pw.pump_101A_kw || 31.8).toFixed(1) + ' kW',
+      tip: '频率 ' + v('SZ-101A', 38.5).toFixed(1) + ' Hz · 电流 ' + v('IT-101A', 56.2).toFixed(1) + ' A · 出口压力 ' + v('PT-101A', 0).toFixed(0) + ' kPa'
+    },
+    {
+      tag: 'P-101B', name: '备用输送泵', run: v('ST-101B', 0) === 1, accent: '#5a7ab0',
+      info: '0.0 m³/h · 待机',
+      tip: '联锁备用 · 主泵跳闸后自启 · 当前无流量'
+    },
+    {
+      tag: 'P-201', name: '冷却水循环泵', run: true, accent: '#38bdf8',
+      info: '88.0 m³/h · ' + (pw.pump_201_kw || 17.7).toFixed(1) + ' kW',
+      tip: '电流 ' + v('IT-201', 32.9).toFixed(1) + ' A · 冷却回路供水'
+    }
+  ];
+
+  var hosts = document.querySelectorAll('.pump-3d');
+  CFG.forEach(function (c, i) {
+    var host = hosts[i];
+    if (!host) return;
+    var canvas = host.querySelector('.pump-canvas');
+    if (!canvas) return;
+
+    var viewer;
+    try {
+      viewer = P3.createViewer(canvas, {
+        fov: 34, alpha: true, fog: false,
+        rig: {
+          target: [0, 1.25, 0], theta: -0.55, phi: 1.14, dist: 9.5,
+          thetaRange: [-Math.PI, Math.PI],   // 单体设备允许 360° 环绕
+          phiRange: [0.34, 1.52],            // 不穿地、不过顶
+          distRange: [5.5, 18],
+          enablePan: false,                  // 小画布不开平移，避免拖出视野
+          autoRotate: true, autoRotateSpeed: 0.30, damping: 8
+        }
+      });
+    } catch (e) {
+      console.warn('[3D] ' + c.tag + ' 初始化失败，保留 SVG', e);
+      return;
+    }
+    // 画布由 display:none 切为可见，需立即按真实尺寸重建相机/渲染缓冲
+    host.classList.add('mode3d');
+    if (viewer.resize) viewer.resize();
+
+    // 灯光（小场景单独布光）
+    viewer.scene.add(new T.HemisphereLight(0x9fc6ff, 0x0a1428, 0.95));
+    var key = new T.DirectionalLight(0xffffff, 1.5); key.position.set(6, 9, 7); viewer.scene.add(key);
+    var fill = new T.DirectionalLight(0x66b6ff, 0.65); fill.position.set(-7, 4, -5); viewer.scene.add(fill);
+    var rim = new T.PointLight(c.run ? 0x00d4ff : 0x4a6a9c, 30, 26, 2); rim.position.set(0, 4, -6); viewer.scene.add(rim);
+    viewer.scene.add(P3.buildGround(14, 14));
+
+    // 泵体资产
+    var pump = P3.buildPump({ running: c.run, tag: c.tag, name: c.name, info: c.info, accent: c.accent });
+    pump.userData.pickable = true;
+    pump.userData.tag = c.tag;
+    viewer.scene.add(pump);
+
+    // 进出口短管（示意接管方向）
+    [-1, 1].forEach(function (s) {
+      var pipe = new T.Mesh(new T.CylinderGeometry(0.16, 0.16, 1.6, 16),
+        P3.MAT.steel(0x2a4d8c, { emissive: 0x2a4d8c, emissiveIntensity: 0.35 }));
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(s * 2.5, 1.15, 0);
+      viewer.scene.add(pipe);
+    });
+
+    viewer.onFrame(function (dt, t) {
+      if (pump.userData.spinSpeed) pump.userData.spinner.rotation.x += pump.userData.spinSpeed * dt;
+      pump.userData.lamp.material.opacity = 0.6 + 0.4 * Math.sin(t * 3);
+    });
+
+    // 交互：悬停信息 + 视角预设 + 2D/3D 切换
+    var tip = P3.attachTooltip(canvas, viewer);
+    P3.createPicker(viewer, {
+      onHover: function (ud) {
+        if (!ud) { tip.hide(); return; }
+        tip.show('<b>' + c.tag + '</b> ' + c.name + '<br>' + (c.run ? '运行 · RUN' : '停止 · STOP') + '<br>' + c.tip);
+      }
+    });
+    P3.attachHud(host, viewer, {
+      tip: '',
+      presets: [
+        { label: '正视', view: { theta: 0, phi: 1.35, dist: 9 } },
+        { label: '俯视', view: { theta: -0.3, phi: 0.45, dist: 9.5 } },
+        { label: '轴测', view: { theta: -0.55, phi: 1.14, dist: 9.5 } }
+      ]
+    });
+
+    var btn = document.createElement('button');
+    btn.className = 'p3d-toggle';
+    btn.textContent = '3D';
+    btn.title = '在 3D 模型与原始 2D 剖面图之间切换';
+    btn.addEventListener('click', function () {
+      var on = host.classList.toggle('mode3d');
+      btn.textContent = on ? '3D' : '2D';
+      if (on) viewer.resize();
+    });
+    host.appendChild(btn);
+  });
+})();
+</script>
+
+<!-- ===== 页面导航 & 画布自适应 ===== -->
+<script src="./nav.js"></script>
+<script src="./fit-screen.js"></script>
+</body>
+</html>
