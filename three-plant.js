@@ -336,6 +336,7 @@
     var fanCase = new T.Mesh(new T.TorusGeometry(0.6, 0.06, 8, 32), MAT.steel(0x35639f));
     fanCase.rotation.y = Math.PI / 2; fanCase.position.set(-1.72, 1.15, 0); g.add(fanCase);
 
+    // 旋转组：原点必须与叶轮中心重合，绕自身轴自转时中轴（hub）才保持静止
     var spinner = new T.Group();
     spinner.position.set(-1.72, 1.15, 0);
     spinner.rotation.y = Math.PI / 2;   // 叶片平面法线对齐泵轴（X 轴）
@@ -350,9 +351,7 @@
       blade.rotation.x = 0.45;
       spinner.add(blade);
     }
-    var spinnerInner = new T.Group();   // 内层再绕自身轴自转
-    spinnerInner.add(spinner);
-    g.add(spinnerInner);
+    g.add(spinner);
 
     // 运行状态灯
     var lamp = new T.Mesh(new T.SphereGeometry(0.11, 16, 12), MAT.glow(run ? 0x4ade80 : 0x5a7ab0, 1));
@@ -370,7 +369,7 @@
 
     g.userData = {
       tag: o.tag, type: 'pump', pickable: true, running: run,
-      spinner: spinnerInner, lamp: lamp, label: label,
+      spinner: spinner, lamp: lamp, label: label,
       spinSpeed: run ? 6.5 : 0,     // rad/s
       setRunning: function (v) {
         g.userData.running = v;
